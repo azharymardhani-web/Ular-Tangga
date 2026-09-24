@@ -318,10 +318,13 @@
             const generateQuestionsWithGeminiAI = async () => {
                 setAiLoading(true);
                 try {
+                    // Menggunakan API Key dari Firebase yang Anda berikan
+                    const apiKey = "AIzaSyA3v19W60OQ5qfKYELEvmmkKaO-Gf6zHgs";
+                    
                     const systemPrompt = "Anda adalah guru ahli kurikulum nasional di Indonesia. Buat soal pilihan ganda berkualitas (4 opsi: A,B,C,D) dengan indeks jawaban benar acak (0, 1, 2, atau 3). Output HANYA format JSON array valid murni berupa [ {...} ] tanpa teks tambahan.";
                     const userQuery = `Buatkan ${aiCount} soal pilihan ganda untuk Mata Pelajaran ${aiSubject}, ${aiClass}, Materi: "${aiMaterial}", Tingkat Kesulitan: ${aiDifficulty}. Format JSON array murni: [{"q":"...","options":["A","B","C","D"],"answer":0,"level":"${aiDifficulty}","subject":"${aiSubject}"}]`;
 
-                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent`;
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
                     const payload = {
                         contents: [{ parts: [{ text: userQuery }] }],
                         systemInstruction: { parts: [{ text: systemPrompt }] },
@@ -362,6 +365,13 @@
                     }
                 } catch (err) {
                     console.warn("AI remote fetch notice, generating high-quality curriculum fallback questions...", err);
+                    
+                    if (err.message.includes("403") || err.message.includes("400")) {
+                        showToast("Error 403: API Key Gemini belum diisi di dalam kode HTML. Menggunakan bank soal darurat...", "error");
+                    } else {
+                        showToast(`Gagal: ${err.message}. Menggunakan soal darurat...`, "error");
+                    }
+
                     const fallback = [];
                     for(let i = 1; i <= aiCount; i++) {
                         const randAns = Math.floor(Math.random() * 4);
@@ -379,7 +389,6 @@
                         });
                     }
                     setGeneratedQuestions(fallback);
-                    showToast(`Berhasil men-generate ${aiCount} soal kurikulum ${aiSubject}!`, "success");
                 } finally {
                     setAiLoading(false);
                 }
