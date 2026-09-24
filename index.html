@@ -83,7 +83,6 @@
             z-index: 10;
         }
         
-        /* Offset for multiple players on same cell */
         .offset-0 { transform: translate(-20%, -20%); z-index: 15; }
         .offset-1 { transform: translate(20%, -20%); z-index: 14; }
         .offset-2 { transform: translate(-20%, 20%); z-index: 13; }
@@ -93,7 +92,6 @@
         .snake-line { stroke: #ef4444; stroke-width: 4; stroke-dasharray: 5,5; fill: none; opacity: 0.7;}
         .ladder-line { stroke: #10b981; stroke-width: 6; opacity: 0.7; }
         
-        /* Hide scrollbar for clean look */
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: #f1f1f1; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
@@ -108,10 +106,15 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, getDocs, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Firebase Setup (Strict Rules Applied)
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'mtsn14-snake-ladder-app';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-            apiKey: "dummy-key", authDomain: "dummy.firebaseapp.com", projectId: "dummy-project" // Will fail gracefully if no real config provided in env
+        const firebaseConfig = {
+            apiKey: "AIzaSyA3v19W60OQ5qfKYELEvmmkKaO-Gf6zHgs",
+            authDomain: "informatica-class.firebaseapp.com",
+            projectId: "informatica-class",
+            storageBucket: "informatica-class.firebasestorage.app",
+            messagingSenderId: "352869091816",
+            appId: "1:352869091816:web:394d41abf183c63d2bbc5d",
+            measurementId: "G-E5QK6W2JR9"
         };
         
         let app, db, auth;
@@ -123,7 +126,6 @@
             console.error("Firebase init failed", e);
         }
 
-        // Global Constants & Data
         const AVATARS = [
             { id: 'a1', name: 'Student Boy - Peci', icon: '👦🏽', bg: 'bg-blue-500', isBoy: true },
             { id: 'a2', name: 'Student Boy - Glasses', icon: '🤓', bg: 'bg-indigo-500', isBoy: true },
@@ -176,21 +178,17 @@
             const { useState, useEffect, useRef, useMemo } = React;
 
             const [user, setUser] = useState(null);
-            const [userRole, setUserRole] = useState(null); // 'teacher' | 'student' | null
-            const [currentView, setCurrentView] = useState('landing'); // landing, teacher_dash, join_room, lobby, game, result
+            const [userRole, setUserRole] = useState(null); 
+            const [currentView, setCurrentView] = useState('landing'); 
             
-            // State for Game/Room
             const [roomData, setRoomData] = useState(null);
             const [roomId, setRoomId] = useState(null);
-            const [playerData, setPlayerData] = useState(null); // Local student data
+            const [playerData, setPlayerData] = useState(null); 
             
-            // UI States
             const [toast, setToast] = useState(null);
             const [loading, setLoading] = useState(true);
 
-            // Audio Context (Mocked for single file reliability, standard HTML5 Audio)
             const playSound = (type) => {
-                // In a full app, load actual MP3s. Using beeps for this constraint environment.
                 try {
                     const ctx = new (window.AudioContext || window.webkitAudioContext)();
                     const osc = ctx.createOscillator();
@@ -219,7 +217,12 @@
                     const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
                     try {
                         if (token) {
-                            await signInWithCustomToken(auth, token);
+                            try {
+                                await signInWithCustomToken(auth, token);
+                            } catch (customTokenError) {
+                                console.warn("Custom token failed or mismatched, falling back to anonymous auth:", customTokenError);
+                                await signInAnonymously(auth);
+                            }
                         } else {
                             await signInAnonymously(auth);
                         }
@@ -269,7 +272,7 @@
                     
                     const initialRoomData = {
                         id: newRoomId,
-                        status: 'lobby', // lobby, playing, finished
+                        status: 'lobby',
                         hostId: user.uid,
                         config: {
                             timer: 30,
@@ -278,10 +281,10 @@
                             subject: 'Campuran'
                         },
                         board: DEFAULT_BOARD,
-                        questions: SAMPLE_QUESTIONS, // Mocked for now
+                        questions: SAMPLE_QUESTIONS,
                         players: [],
                         turnIndex: 0,
-                        turnState: 'idle', // idle, answering, rolling, moving, resolving
+                        turnState: 'idle',
                         currentDice: null,
                         createdAt: Date.now()
                     };
@@ -302,7 +305,6 @@
                     return;
                 }
                 
-                // Format kode otomatis jika siswa lupa mengetik "MT14-"
                 let rCode = code.toUpperCase().trim();
                 if (!rCode.startsWith('MT14-') && rCode.length >= 4) {
                     rCode = 'MT14-' + rCode;
@@ -337,7 +339,7 @@
                         id: user.uid,
                         name: playerName,
                         avatarId: avatarId,
-                        position: 0, // 0 means outside board, 1 is start
+                        position: 0, 
                         score: 0,
                         correct: 0,
                         wrong: 0,
@@ -359,7 +361,6 @@
             };
 
             const handleLeaveRoom = () => {
-                // Ideally remove player from DB, but for simplicity in this demo, just clear local state
                 setRoomId(null);
                 setRoomData(null);
                 setPlayerData(null);
@@ -370,7 +371,6 @@
                 if (userRole !== 'teacher' || !roomData) return;
                 const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
                 
-                // Move all players to start (position 1)
                 const startingPlayers = roomData.players.map(p => ({...p, position: 1}));
 
                 await updateDoc(roomRef, {
@@ -385,11 +385,10 @@
                 if (userRole !== 'student' || !roomData) return;
                 
                 const currentPlayer = roomData.players[roomData.turnIndex];
-                if (currentPlayer.id !== user.uid) return; // Not my turn
+                if (currentPlayer.id !== user.uid) return;
                 
                 const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
                 
-                // For simplicity, just get a random question from the pool
                 const q = roomData.questions[Math.floor(Math.random() * roomData.questions.length)];
                 const isCorrect = answerIndex === q.answer;
                 
@@ -404,19 +403,17 @@
                     
                     await updateDoc(roomRef, {
                         players: updatedPlayers,
-                        turnState: 'rolling' // Move to roll state
+                        turnState: 'rolling'
                     });
                 } else {
                     playSound('wrong');
                     showToast("Jawaban Salah! Giliran berpindah.", "error");
                     updatedPlayers[pIndex].wrong += 1;
                     
-                    // Penalty logic (optional based on config)
                     let newPos = updatedPlayers[pIndex].position - roomData.config.wrongPenalty;
                     if(newPos < 1) newPos = 1;
                     updatedPlayers[pIndex].position = newPos;
 
-                    // Next turn directly
                     const nextTurn = (roomData.turnIndex + 1) % roomData.players.length;
                     await updateDoc(roomRef, {
                         players: updatedPlayers,
@@ -430,7 +427,6 @@
                 if (!roomData) return;
                 const currentPlayer = roomData.players[roomData.turnIndex];
                 
-                // Both Teacher (manual override) or Active Student can roll
                 if (userRole === 'student' && currentPlayer.id !== user.uid) return;
                 
                 playSound('dice');
@@ -442,10 +438,9 @@
                     turnState: 'moving'
                 });
 
-                // Simulate movement delay
                 setTimeout(async () => {
                     let newPos = currentPlayer.position + diceValue;
-                    if (newPos > 100) newPos = 100 - (newPos - 100); // Bounce back if > 100
+                    if (newPos > 100) newPos = 100 - (newPos - 100);
                     
                     let updatedPlayers = [...roomData.players];
                     updatedPlayers[roomData.turnIndex].position = newPos;
@@ -455,7 +450,6 @@
                         turnState: 'resolving'
                     });
 
-                    // Check Snakes and Ladders
                     setTimeout(async () => {
                         let finalPos = newPos;
                         let hitEvent = false;
@@ -478,7 +472,6 @@
                             await updateDoc(roomRef, { players: updatedPlayers });
                         }
 
-                        // Check Win Condition
                         if (finalPos === 100) {
                             updatedPlayers[roomData.turnIndex].score += 500;
                             await updateDoc(roomRef, { 
@@ -487,18 +480,16 @@
                             });
                             playSound('correct');
                         } else {
-                            // Next turn
                             const nextTurn = (roomData.turnIndex + 1) % roomData.players.length;
                             await updateDoc(roomRef, {
                                 turnIndex: nextTurn,
                                 turnState: 'idle'
                             });
                         }
-                    }, 1000); // Wait for initial move animation
+                    }, 1000);
 
-                }, 1500); // Wait for dice roll animation
+                }, 1500);
             };
-
 
             const Button = ({ children, onClick, variant = 'primary', className = '', disabled=false }) => {
                 const baseStyle = "px-6 py-3 rounded-full font-bold transition-all transform active:scale-95 shadow-lg flex items-center justify-center gap-2";
@@ -522,7 +513,7 @@
 
             const Card = ({ children, className = '', onClick }) => (
                 <div 
-                    className={`glass-panel p-6 rounded-2xl ${className}`} 
+                    className={`glass-panel p-6 rounded-2xl cursor-pointer ${className}`} 
                     onClick={onClick}
                 >
                     {children}
@@ -542,13 +533,13 @@
                     </div>
 
                     <div className="flex flex-col sm:flex-row gap-6 w-full max-w-md">
-                        <Card className="flex-1 text-center hover:-translate-y-2 transition-transform cursor-pointer border-t-4 border-t-brand-teal" onClick={() => setCurrentView('join_room')}>
+                        <Card className="flex-1 text-center hover:-translate-y-2 transition-transform border-t-4 border-t-brand-teal" onClick={() => setCurrentView('join_room')}>
                             <div className="text-4xl mb-4">🎓</div>
                             <h2 className="text-2xl font-bold text-brand-navy mb-2">Siswa</h2>
                             <p className="text-slate-500 text-sm">Masuk dengan Kode Room</p>
                         </Card>
                         
-                        <Card className="flex-1 text-center hover:-translate-y-2 transition-transform cursor-pointer border-t-4 border-t-brand-gold" onClick={() => setCurrentView('teacher_dash')}>
+                        <Card className="flex-1 text-center hover:-translate-y-2 transition-transform border-t-4 border-t-brand-gold" onClick={() => setCurrentView('teacher_dash')}>
                             <div className="text-4xl mb-4">👨‍🏫</div>
                             <h2 className="text-2xl font-bold text-brand-navy mb-2">Guru</h2>
                             <p className="text-slate-500 text-sm">Kelola Kelas & Game</p>
@@ -606,15 +597,9 @@
                                         <span>📚</span> Bank Soal
                                     </h2>
                                     <div className="space-y-3">
-                                        <button className="w-full text-left p-3 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 font-medium transition-colors">
-                                            📝 Buat Soal Baru
-                                        </button>
-                                        <button className="w-full text-left p-3 rounded-lg bg-green-50 text-green-700 hover:bg-green-100 font-medium transition-colors">
-                                            📥 Import Excel (CSV)
-                                        </button>
-                                        <button className="w-full text-left p-3 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 font-medium transition-colors">
-                                            🤖 Generate via AI
-                                        </button>
+                                        <div className="p-3 rounded-lg bg-blue-50 text-blue-700 font-medium">📝 Buat Soal Baru</div>
+                                        <div className="p-3 rounded-lg bg-green-50 text-green-700 font-medium">📥 Import Excel (CSV)</div>
+                                        <div className="p-3 rounded-lg bg-purple-50 text-purple-700 font-medium">🤖 Generate via AI</div>
                                     </div>
                                 </Card>
                             </div>
@@ -637,7 +622,7 @@
 
                 return (
                     <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50">
-                        <Card className="w-full max-w-2xl">
+                        <Card className="w-full max-w-2xl cursor-default">
                             <div className="text-center mb-8">
                                 <h2 className="text-3xl font-display font-bold text-brand-navy">Bergabung ke Kelas</h2>
                                 <p className="text-slate-500">Masukkan kode dari guru dan pilih karaktermu!</p>
@@ -727,7 +712,7 @@
                                 )}
                             </div>
 
-                            <Card>
+                            <Card className="cursor-default">
                                 <h3 className="font-bold text-xl mb-4 flex justify-between items-center">
                                     <span>Pemain Bergabung</span>
                                     <span className="bg-slate-200 text-slate-700 px-3 py-1 rounded-full text-sm">{roomData.players.length} / 32</span>
@@ -757,7 +742,6 @@
             };
 
             const GameBoard = ({ roomData }) => {
-                // Calculate grid cells (1 to 100, zig-zag)
                 const cells = useMemo(() => {
                     const grid = [];
                     for (let row = 9; row >= 0; row--) {
@@ -772,23 +756,18 @@
                 }, []);
 
                 const getCellCoords = (cellNum) => {
-                    if (cellNum < 1 || cellNum > 100) return {x:0, y:0}; // Default outside
+                    if (cellNum < 1 || cellNum > 100) return {x:0, y:0};
                     const row = Math.floor((cellNum - 1) / 10);
                     const isEvenRow = row % 2 === 0;
                     const col = (cellNum - 1) % 10;
                     const actualCol = isEvenRow ? col : 9 - col;
-                    
-                    // Coordinates relative to 10x10 grid (0-9)
-                    // Top-left is (0,0) in CSS Grid, but our board logic 1 is bottom-left
-                    const gridRow = 9 - row; 
-                    const gridCol = actualCol;
-                    return { row: gridRow, col: gridCol };
+                    return { row: 9 - row, col: actualCol };
                 };
 
                 return (
                     <div className="relative w-full max-w-2xl mx-auto shadow-2xl rounded-xl">
                         <div className="board-grid">
-                            {cells.map((c, i) => (
+                            {cells.map((c) => (
                                 <div key={c.num} className={`board-cell ${(c.row + c.col) % 2 === 0 ? 'cell-even' : 'cell-odd'} relative`}>
                                     <span className="absolute top-1 left-1 text-[10px] sm:text-xs opacity-50 font-bold">{c.num}</span>
                                     {c.num === 1 && <span className="text-xs text-brand-teal font-bold opacity-100">START</span>}
@@ -796,9 +775,7 @@
                                 </div>
                             ))}
 
-                            {/* Render SVG overlay for Snakes and Ladders */}
                             <svg className="absolute top-0 left-0 w-full h-full pointer-events-none" style={{ zIndex: 5 }}>
-                                {/* Note: Real paths require precise math based on percentages. Simplified straight lines for this constraint. */}
                                 {Object.entries(roomData.board.snakes).map(([start, end]) => {
                                     const sCoord = getCellCoords(parseInt(start));
                                     const eCoord = getCellCoords(end);
@@ -823,13 +800,11 @@
                                 })}
                             </svg>
 
-                            {/* Render Players */}
                             {roomData.players.map((p, idx) => {
-                                if (p.position === 0) return null; // Hide if not yet on board
+                                if (p.position === 0) return null;
                                 const coord = getCellCoords(p.position);
                                 const ava = AVATARS.find(a => a.id === p.avatarId);
                                 
-                                // Group players on same cell to apply offset
                                 const playersOnSameCell = roomData.players.filter(op => op.position === p.position);
                                 const indexOnCell = playersOnSameCell.findIndex(op => op.id === p.id);
                                 
@@ -847,10 +822,10 @@
                                         key={p.id}
                                         className={`player-token ${ava?.bg} ${offsetClass} ring-2 ring-white`}
                                         style={{
-                                            left: `${(coord.col * 10) + 1}%`, // 1% padding
+                                            left: `${(coord.col * 10) + 1}%`,
                                             top: `${(coord.row * 10) + 1}%`,
                                             width: '8%', height: '8%',
-                                            transition: 'all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)' // Bouncy movement
+                                            transition: 'all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)'
                                         }}
                                         title={`${p.name} (Skor: ${p.score})`}
                                     >
@@ -874,13 +849,10 @@
                 const activePlayer = roomData.players[roomData.turnIndex];
                 const isMyTurn = userRole === 'student' && activePlayer?.id === user.uid;
                 const isTeacher = userRole === 'teacher';
-
-                // Randomly select a question for UI representation (in full app, handle index properly)
                 const currentQuestion = roomData.questions[0]; 
 
                 return (
                     <div className="min-h-screen bg-slate-100 flex flex-col md:flex-row">
-                        {/* Left Sidebar: Leaderboard & Status */}
                         <div className="w-full md:w-80 bg-white border-r border-slate-200 flex flex-col h-screen max-h-screen">
                             <div className="p-4 bg-brand-navy text-white">
                                 <div className="text-xs text-brand-gold font-bold mb-1">ROOM: {roomData.id}</div>
@@ -894,7 +866,6 @@
                             </div>
                             
                             <div className="flex-1 overflow-y-auto p-2 space-y-2">
-                                {/* Sort by position then score */}
                                 {[...roomData.players].sort((a,b) => b.position - a.position || b.score - a.score).map((p, index) => {
                                     const ava = AVATARS.find(a => a.id === p.avatarId);
                                     const isCurrent = roomData.turnIndex === roomData.players.findIndex(op => op.id === p.id);
@@ -918,10 +889,7 @@
                             </div>
                         </div>
 
-                        {/* Right Area: Board & Actions */}
                         <div className="flex-1 p-4 md:p-8 flex flex-col h-screen overflow-y-auto bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-100 via-slate-200 to-slate-300">
-                            
-                            {/* Top Status Bar */}
                             <div className="bg-white rounded-2xl p-4 shadow-sm mb-6 flex justify-between items-center flex-wrap gap-4">
                                 <div className="flex items-center gap-4">
                                     <div className="bg-brand-teal text-white w-12 h-12 rounded-full flex items-center justify-center text-2xl shadow-inner font-bold">
@@ -948,12 +916,10 @@
                                 )}
                             </div>
 
-                            {/* Center Board */}
                             <div className="flex-1 flex items-center justify-center mb-6">
                                 <GameBoard roomData={roomData} />
                             </div>
 
-                            {/* Action Area (Bottom) */}
                             {isMyTurn && roomData.turnState === 'idle' && (
                                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand-navy bg-opacity-80 p-4 backdrop-blur-sm">
                                     <div className="bg-white rounded-3xl p-8 max-w-xl w-full shadow-2xl transform transition-all">
@@ -1003,9 +969,7 @@
                             <p className="text-xl text-slate-300">Hasil Evaluasi Kelas & Klasemen Akhir</p>
                         </div>
 
-                        {/* Podium */}
                         <div className="flex items-end justify-center gap-4 mb-16 h-64">
-                            {/* Juara 2 */}
                             {podium[1] && (
                                 <div className="flex flex-col items-center transform translate-y-8 animate-fade-in" style={{animationDelay: '0.3s'}}>
                                     <div className="text-4xl mb-2">{AVATARS.find(a=>a.id===podium[1].avatarId)?.icon}</div>
@@ -1016,7 +980,6 @@
                                     </div>
                                 </div>
                             )}
-                            {/* Juara 1 */}
                             {podium[0] && (
                                 <div className="flex flex-col items-center z-10 animate-fade-in" style={{animationDelay: '0.6s'}}>
                                     <div className="text-5xl mb-2 animate-bounce">{AVATARS.find(a=>a.id===podium[0].avatarId)?.icon}</div>
@@ -1027,7 +990,6 @@
                                     </div>
                                 </div>
                             )}
-                            {/* Juara 3 */}
                             {podium[2] && (
                                 <div className="flex flex-col items-center transform translate-y-12 animate-fade-in" style={{animationDelay: '0.9s'}}>
                                     <div className="text-3xl mb-2">{AVATARS.find(a=>a.id===podium[2].avatarId)?.icon}</div>
@@ -1040,7 +1002,6 @@
                             )}
                         </div>
 
-                        {/* Statistik Panel */}
                         <div className="w-full max-w-4xl bg-slate-800 rounded-2xl p-6 shadow-2xl">
                             <h3 className="text-2xl font-bold mb-6 border-b border-slate-700 pb-4">Statistik Lengkap</h3>
                             <div className="overflow-x-auto">
@@ -1086,7 +1047,6 @@
 
             return (
                 <div className="font-sans text-slate-800">
-                    {/* Toast Notification */}
                     {toast && (
                         <div className={`fixed top-4 right-4 z-[100] px-6 py-3 rounded-xl shadow-lg text-white font-bold transition-all transform translate-y-0 opacity-100 ${toast.type === 'error' ? 'bg-red-500' : toast.type === 'success' ? 'bg-green-500' : 'bg-brand-navy'}`}>
                             {toast.msg}
@@ -1100,7 +1060,6 @@
                     {currentView === 'playing' && <GamePlay />}
                     {currentView === 'finished' && <ResultScreen />}
                     
-                    {/* State Router Override based on roomData status */}
                     {roomData && roomData.status === 'playing' && currentView !== 'playing' && (() => { setCurrentView('playing'); return null; })()}
                     {roomData && roomData.status === 'finished' && currentView !== 'finished' && (() => { setCurrentView('finished'); return null; })()}
                 </div>
@@ -1111,7 +1070,6 @@
         root.render(<ReactApp />);
     </script>
 
-    <!-- Adding simple CSS animations that Tailwind doesn't have built-in perfectly -->
     <style>
         @keyframes fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .animate-fade-in { animation: fade-in 0.5s ease-out forwards; }
