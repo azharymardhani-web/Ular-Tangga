@@ -175,7 +175,6 @@
             { q: "Rukun Islam yang ketiga adalah?", options: ["Syahadat", "Shalat", "Zakat", "Puasa"], answer: 2, level: "Mudah", subject: "Agama" }
         ];
 
-        // Helper to generate a pool of 50 randomized questions (repeating/shuffling samples if needed)
         const generateGameQuestions = (customQuestions = []) => {
             let base = customQuestions.length > 0 ? customQuestions : SAMPLE_QUESTIONS;
             let pool = [];
@@ -186,9 +185,17 @@
             return pool.slice(0, 50);
         };
 
-        const DEFAULT_BOARD = {
-            snakes: { 16: 6, 47: 26, 49: 11, 56: 53, 62: 19, 64: 60, 87: 24, 93: 73, 95: 75, 98: 78 },
-            ladders: { 1: 38, 4: 14, 9: 31, 21: 42, 28: 84, 36: 44, 51: 67, 71: 91, 80: 100 }
+        // Exact classic board snake and ladder configuration matching the reference image layout
+        const EXACT_CLASSIC_BOARD = {
+            snakes: { 
+                99: 79, 
+                93: 88, 89: 72, 74: 55, 62: 41, 
+                54: 35, 32: 11
+            },
+            ladders: { 
+                3: 18, 9: 29, 21: 40, 26: 76, 52: 68, 
+                56: 95, 80: 99, 91: 99 // exact ladder base-tops
+            }
         };
 
         window.ReactApp = function() {
@@ -205,33 +212,100 @@
             const [toast, setToast] = useState(null);
             const [loading, setLoading] = useState(true);
 
-            // AI Generator State
+            // Password Protection Modals
+            const [adminModalOpen, setAdminModalOpen] = useState(false);
+            const [adminPass, setAdminPass] = useState('');
+            const [teacherModalOpen, setTeacherModalOpen] = useState(false);
+            const [teacherPass, setTeacherPass] = useState('');
+
+            // Admin & Teacher Data State
+            const [teachersList, setTeachersList] = useState([
+                { id: 't1', name: 'Bpk. Ahmad, S.Kom', subject: 'Informatika', pass: 'guru123' },
+                { id: 't2', name: 'Ibu Siti, M.Pd', subject: 'Matematika', pass: 'guru123' },
+                { id: 't3', name: 'Bpk. Rahmat, S.Pd.I', subject: 'Al-Qur\'an Hadis', pass: 'guru123' }
+            ]);
+            const [newTeacherName, setNewTeacherName] = useState('');
+            const [newTeacherSubject, setNewTeacherSubject] = useState('Informatika');
+            const [newTeacherPass, setNewTeacherPass] = useState('guru123');
+
+            // Reports & Game History State
+            const [gameReports, setGameReports] = useState([
+                { id: 'rep-1', room: 'MT14-G7X2', subject: 'Informatika', date: '2026-06-06', playersCount: 24, topPlayer: 'Ahmad', avgAccuracy: '85%' },
+                { id: 'rep-2', room: 'MT14-M4TH', subject: 'Matematika', date: '2026-06-05', playersCount: 28, topPlayer: 'Siti', avgAccuracy: '78%' }
+            ]);
+
+            // AI Generator State & Gemini Integration
             const [aiModalOpen, setAiModalOpen] = useState(false);
             const [aiSubject, setAiSubject] = useState('Informatika');
             const [aiClass, setAiClass] = useState('Kelas 8');
             const [aiMaterial, setAiMaterial] = useState('Analisis Data');
-            const [aiCount, setAiCount] = useState(50);
+            const [aiCount, setAiCount] = useState(20);
             const [aiDifficulty, setAiDifficulty] = useState('Sedang');
             const [aiLoading, setAiLoading] = useState(false);
             const [generatedQuestions, setGeneratedQuestions] = useState([]);
 
-            const generateQuestionsWithAI = () => {
+            const generateQuestionsWithGeminiAI = async () => {
                 setAiLoading(true);
-                setTimeout(() => {
-                    const mockAiPool = [];
+                try {
+                    const systemPrompt = "Anda adalah seorang guru ahli pembuat soal kurikulum madrasah / nasional di Indonesia. Buatlah soal pilihan ganda berkualitas tinggi (4 opsi: A, B, C, D) dengan posisi jawaban benar diacak secara merata (bisa di indeks 0, 1, 2, atau 3). Output HANYA dalam format JSON array yang valid tanpa teks lain.";
+                    const userQuery = `Buatkan ${aiCount} soal pilihan ganda untuk Mata Pelajaran ${aiSubject}, ${aiClass}, Materi: "${aiMaterial}", Tingkat Kesulitan: ${aiDifficulty}. 
+                    Format JSON wajib seperti ini:
+                    [
+                      {
+                        "q": "Pertanyaan...",
+                        "options": ["Opsi 1", "Opsi 2", "Opsi 3", "Opsi 4"],
+                        "answer": 0,
+                        "level": "${aiDifficulty}",
+                        "subject": "${aiSubject}"
+                      }
+                    ]`;
+
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=`;
+                    const payload = {
+                        contents: [{ parts: [{ text: userQuery }] }],
+                        systemInstruction: { parts: [{ text: systemPrompt }] },
+                        generationConfig: { responseMimeType: "application/json" }
+                    };
+
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    const result = await response.json();
+                    const candidate = result.candidates?.[0];
+                    if (candidate && candidate.content?.parts?.[0]?.text) {
+                        const text = candidate.content.parts[0].text;
+                        const parsed = JSON.parse(text);
+                        if (Array.isArray(parsed) && parsed.length > 0) {
+                            setGeneratedQuestions(parsed);
+                            showToast(`Berhasil generate ${parsed.length} soal akurat dengan Gemini AI!`, "success");
+                        } else {
+                            throw new Error("Format JSON dari AI tidak valid");
+                        }
+                    } else {
+                        throw new Error("Gagal menerima respons dari Gemini AI");
+                    }
+                } catch (err) {
+                    console.error("Gemini AI Error:", err);
+                    showToast("Gagal terhubung ke Gemini AI. Menggunakan soal cadangan.", "error");
+                    const fallback = [];
                     for(let i=1; i<=aiCount; i++) {
-                        mockAiPool.push({
-                            q: `[AI - ${aiSubject}] Pertanyaan nomor ${i} mengenai materi ${aiMaterial} (${aiDifficulty})?`,
-                            options: [`Pilihan A untuk soal ${i}`, `Pilihan B untuk soal ${i}`, `Pilihan C untuk soal ${i}`, `Pilihan D untuk soal ${i}`],
-                            answer: 0,
+                        const randAns = Math.floor(Math.random() * 4);
+                        let opts = [`Pilihan A soal ${i}`, `Pilihan B soal ${i}`, `Pilihan C soal ${i}`, `Pilihan D soal ${i}`];
+                        fallback.push({
+                            q: `[AI ${aiSubject}] Pertanyaan ${i} mengenai ${aiMaterial} (${aiDifficulty})?`,
+                            options: opts,
+                            answer: randAns,
                             level: aiDifficulty,
                             subject: aiSubject
                         });
                     }
-                    setGeneratedQuestions(mockAiPool);
+                    setGeneratedQuestions(fallback);
+                } finally {
                     setAiLoading(false);
-                    showToast("Berhasil generate 50 soal dengan AI!", "success");
-                }, 1000);
+                }
             };
 
             const playSound = (type) => {
@@ -266,15 +340,12 @@
                             try {
                                 await signInWithCustomToken(auth, token);
                             } catch (customTokenError) {
-                                console.warn("Custom token failed or mismatched, falling back to anonymous auth:", customTokenError);
                                 await signInAnonymously(auth);
                             }
                         } else {
                             await signInAnonymously(auth);
                         }
                     } catch (error) {
-                        console.error("Auth error", error);
-                        showToast("Koneksi server gagal, coba muat ulang halaman", "error");
                         setLoading(false);
                     }
                 };
@@ -299,8 +370,6 @@
                         showToast("Room tidak ditemukan atau telah ditutup", "error");
                         handleLeaveRoom();
                     }
-                }, (error) => {
-                    console.error("Room sync error", error);
                 });
 
                 return () => unsubscribe();
@@ -326,7 +395,7 @@
                             maxPlayers: 32,
                             subject: aiSubject
                         },
-                        board: DEFAULT_BOARD,
+                        board: EXACT_CLASSIC_BOARD,
                         questions: generatedQuestions.length > 0 ? generatedQuestions : generateGameQuestions(),
                         players: [],
                         turnIndex: 0,
@@ -340,7 +409,6 @@
                     setUserRole('teacher');
                     setCurrentView('lobby');
                 } catch (e) {
-                    console.error(e);
                     showToast("Gagal membuat room: " + e.message, "error");
                 }
             };
@@ -361,7 +429,7 @@
                 try {
                     const snap = await getDoc(roomRef);
                     if (!snap.exists()) {
-                        showToast(`Room ${rCode} tidak ditemukan! Pastikan Guru sudah membuat room.`, "error");
+                        showToast(`Room ${rCode} tidak ditemukan!`, "error");
                         return;
                     }
                     
@@ -401,7 +469,6 @@
                     setCurrentView('lobby');
 
                 } catch (e) {
-                    console.error(e);
                     showToast("Gagal bergabung ke room", "error");
                 }
             };
@@ -410,13 +477,12 @@
                 setRoomId(null);
                 setRoomData(null);
                 setPlayerData(null);
-                setCurrentView(userRole === 'teacher' ? 'teacher_dash' : 'landing');
+                setCurrentView(userRole === 'teacher' ? 'teacher_dash' : userRole === 'admin' ? 'admin_dash' : 'landing');
             };
 
             const startGame = async () => {
                 if (userRole !== 'teacher' || !roomData) return;
                 const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
-                
                 const startingPlayers = roomData.players.map(p => ({...p, position: 1}));
 
                 await updateDoc(roomRef, {
@@ -429,13 +495,10 @@
 
             const submitAnswer = async (answerIndex) => {
                 if (userRole !== 'student' || !roomData) return;
-                
                 const currentPlayer = roomData.players[roomData.turnIndex];
                 if (currentPlayer.id !== user.uid) return;
                 
                 const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
-                
-                // Pick question based on player turn index or random from the 50 pool
                 const qIndex = (roomData.turnIndex + currentPlayer.correct + currentPlayer.wrong) % roomData.questions.length;
                 const q = roomData.questions[qIndex] || roomData.questions[0];
                 const isCorrect = answerIndex === q.answer;
@@ -474,7 +537,6 @@
             const rollDice = async () => {
                 if (!roomData) return;
                 const currentPlayer = roomData.players[roomData.turnIndex];
-                
                 if (userRole === 'student' && currentPlayer.id !== user.uid) return;
                 
                 playSound('dice');
@@ -580,21 +642,194 @@
                         <p className="text-xl text-slate-600 font-medium">Belajar, Bermain, Berkompetisi!</p>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row gap-6 w-full max-w-md">
+                    <div className="flex flex-col sm:flex-row gap-6 w-full max-w-xl">
                         <Card className="flex-1 text-center hover:-translate-y-2 transition-transform border-t-4 border-t-brand-teal" onClick={() => setCurrentView('join_room')}>
                             <div className="text-4xl mb-4">🎓</div>
                             <h2 className="text-2xl font-bold text-brand-navy mb-2">Siswa</h2>
                             <p className="text-slate-500 text-sm">Masuk dengan Kode Room</p>
                         </Card>
                         
-                        <Card className="flex-1 text-center hover:-translate-y-2 transition-transform border-t-4 border-t-brand-gold" onClick={() => setCurrentView('teacher_dash')}>
+                        <Card className="flex-1 text-center hover:-translate-y-2 transition-transform border-t-4 border-t-brand-gold" onClick={() => setTeacherModalOpen(true)}>
                             <div className="text-4xl mb-4">👨‍🏫</div>
                             <h2 className="text-2xl font-bold text-brand-navy mb-2">Guru</h2>
                             <p className="text-slate-500 text-sm">Kelola Kelas & Game</p>
                         </Card>
+
+                        <Card className="flex-1 text-center hover:-translate-y-2 transition-transform border-t-4 border-t-purple-600" onClick={() => setAdminModalOpen(true)}>
+                            <div className="text-4xl mb-4">🛡️</div>
+                            <h2 className="text-2xl font-bold text-brand-navy mb-2">Admin</h2>
+                            <p className="text-slate-500 text-sm">Panel Kontrol Utama</p>
+                        </Card>
                     </div>
+
+                    {/* Teacher Password Modal */}
+                    {teacherModalOpen && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 backdrop-blur-sm">
+                            <div className="bg-white rounded-3xl p-6 md:p-8 max-w-md w-full shadow-2xl">
+                                <h3 className="text-2xl font-bold text-brand-navy mb-2">Autentikasi Guru</h3>
+                                <p className="text-slate-500 text-sm mb-4">Masukkan password akses guru (default: guru123)</p>
+                                <input 
+                                    type="password" 
+                                    value={teacherPass} 
+                                    onChange={e => setTeacherPass(e.target.value)} 
+                                    onKeyDown={e => { if(e.key === 'Enter') { if(teacherPass === 'guru123') { setUserRole('teacher'); setCurrentView('teacher_dash'); setTeacherModalOpen(false); } else { showToast("Password guru salah!", "error"); } } }}
+                                    placeholder="Password guru..."
+                                    className="w-full p-3 border-2 rounded-xl mb-4 font-medium outline-none focus:border-brand-gold"
+                                    autoFocus
+                                />
+                                <div className="flex gap-3">
+                                    <Button variant="outline" className="flex-1" onClick={() => setTeacherModalOpen(false)}>Batal</Button>
+                                    <Button className="flex-1" onClick={() => {
+                                        if (teacherPass === 'guru123') {
+                                            setUserRole('teacher');
+                                            setCurrentView('teacher_dash');
+                                            setTeacherModalOpen(false);
+                                        } else {
+                                            showToast("Password guru salah!", "error");
+                                        }
+                                    }}>Masuk</Button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Admin Password Modal */}
+                    {adminModalOpen && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 backdrop-blur-sm">
+                            <div className="bg-white rounded-3xl p-6 md:p-8 max-w-md w-full shadow-2xl">
+                                <h3 className="text-2xl font-bold text-brand-navy mb-2">Autentikasi Admin</h3>
+                                <p className="text-slate-500 text-sm mb-4">Masukkan password super admin (default: admin123)</p>
+                                <input 
+                                    type="password" 
+                                    value={adminPass} 
+                                    onChange={e => setAdminPass(e.target.value)} 
+                                    onKeyDown={e => { if(e.key === 'Enter') { if(adminPass === 'admin123') { setUserRole('admin'); setCurrentView('admin_dash'); setAdminModalOpen(false); } else { showToast("Password admin salah!", "error"); } } }}
+                                    placeholder="Password admin..."
+                                    className="w-full p-3 border-2 rounded-xl mb-4 font-medium outline-none focus:border-purple-600"
+                                    autoFocus
+                                />
+                                <div className="flex gap-3">
+                                    <Button variant="outline" className="flex-1" onClick={() => setAdminModalOpen(false)}>Batal</Button>
+                                    <Button className="flex-1 bg-purple-600 hover:bg-purple-700" onClick={() => {
+                                        if (adminPass === 'admin123') {
+                                            setUserRole('admin');
+                                            setCurrentView('admin_dash');
+                                            setAdminModalOpen(false);
+                                        } else {
+                                            showToast("Password admin salah!", "error");
+                                        }
+                                    }}>Masuk Admin</Button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             );
+
+            const AdminDashboard = () => {
+                return (
+                    <div className="min-h-screen bg-slate-50 p-6">
+                        <div className="max-w-6xl mx-auto">
+                            <div className="flex justify-between items-center mb-8">
+                                <div>
+                                    <h1 className="text-3xl font-display font-bold text-brand-navy">Panel Super Admin</h1>
+                                    <p className="text-slate-500">Kelola Akun Guru, Mata Pelajaran, & Laporan Seluruh Sistem</p>
+                                </div>
+                                <Button variant="outline" onClick={() => setCurrentView('landing')}>Keluar</Button>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                                <Card>
+                                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><span>👨‍🏫</span> Tambah Akun Guru Baru</h2>
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-bold text-slate-700 mb-1">Nama Guru & Gelar</label>
+                                            <input type="text" value={newTeacherName} onChange={e => setNewTeacherName(e.target.value)} placeholder="Contoh: Dra. Hj. Nurul, M.Pd" className="w-full p-3 border rounded-xl font-medium" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-bold text-slate-700 mb-1">Mata Pelajaran</label>
+                                            <select value={newTeacherSubject} onChange={e => setNewTeacherSubject(e.target.value)} className="w-full p-3 border rounded-xl font-medium">
+                                                {SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-bold text-slate-700 mb-1">Password Akses</label>
+                                            <input type="text" value={newTeacherPass} onChange={e => setNewTeacherPass(e.target.value)} className="w-full p-3 border rounded-xl font-medium" />
+                                        </div>
+                                        <Button onClick={() => {
+                                            if(!newTeacherName) { showToast("Nama guru wajib diisi!", "error"); return; }
+                                            setTeachersList([...teachersList, { id: 't-'+Date.now(), name: newTeacherName, subject: newTeacherSubject, pass: newTeacherPass }]);
+                                            setNewTeacherName('');
+                                            showToast("Akun guru berhasil ditambahkan!", "success");
+                                        }} className="w-full bg-purple-600 hover:bg-purple-700">Simpan Akun Guru</Button>
+                                    </div>
+                                </Card>
+
+                                <Card>
+                                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><span>📋</span> Daftar Guru Terdaftar</h2>
+                                    <div className="max-h-80 overflow-y-auto space-y-2 pr-2">
+                                        {teachersList.map(t => (
+                                            <div key={t.id} className="p-3 bg-slate-50 border rounded-xl flex justify-between items-center">
+                                                <div>
+                                                    <div className="font-bold text-brand-navy">{t.name}</div>
+                                                    <div className="text-xs text-brand-teal font-medium">Mapel: {t.subject} | Password: {t.pass}</div>
+                                                </div>
+                                                <button onClick={() => {
+                                                    setTeachersList(teachersList.filter(item => item.id !== t.id));
+                                                    showToast("Akun guru dihapus", "info");
+                                                }} className="text-red-500 hover:text-red-700 font-bold px-2 py-1">Hapus</button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </Card>
+                            </div>
+
+                            <Card>
+                                <div className="flex justify-between items-center mb-4">
+                                    <h2 className="text-xl font-bold flex items-center gap-2"><span>📊</span> Manajemen Laporan & Riwayat Game (Admin)</h2>
+                                    <span className="text-xs bg-purple-100 text-purple-800 px-3 py-1 rounded-full font-bold">{gameReports.length} Laporan Tercatat</span>
+                                </div>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left border-collapse">
+                                        <thead>
+                                            <tr className="border-b text-slate-500 text-sm">
+                                                <th className="p-3">ID Room</th>
+                                                <th className="p-3">Mata Pelajaran</th>
+                                                <th className="p-3">Tanggal</th>
+                                                <th className="p-3">Jumlah Siswa</th>
+                                                <th className="p-3">Top Player</th>
+                                                <th className="p-3">Akurasi</th>
+                                                <th className="p-3 text-right">Aksi</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {gameReports.map(rep => (
+                                                <tr key={rep.id} className="border-b hover:bg-slate-50">
+                                                    <td className="p-3 font-bold text-brand-navy">{rep.room}</td>
+                                                    <td className="p-3">{rep.subject}</td>
+                                                    <td className="p-3 text-sm text-slate-500">{rep.date}</td>
+                                                    <td className="p-3">{rep.playersCount} Siswa</td>
+                                                    <td className="p-3 font-bold text-brand-gold">🏆 {rep.topPlayer}</td>
+                                                    <td className="p-3 text-green-600 font-bold">{rep.avgAccuracy}</td>
+                                                    <td className="p-3 text-right">
+                                                        <button onClick={() => {
+                                                            setGameReports(gameReports.filter(r => r.id !== rep.id));
+                                                            showToast("Laporan berhasil dihapus", "success");
+                                                        }} className="bg-red-100 text-red-600 hover:bg-red-200 px-3 py-1 rounded-lg text-xs font-bold">Hapus</button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                            {gameReports.length === 0 && (
+                                                <tr><td colSpan="7" className="text-center py-6 text-slate-400">Belum ada laporan game tersimpan.</td></tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </Card>
+                        </div>
+                    </div>
+                );
+            };
 
             const TeacherDashboard = () => {
                 return (
@@ -605,10 +840,10 @@
                                     <h1 className="text-3xl font-display font-bold text-brand-navy">Dashboard Guru</h1>
                                     <p className="text-slate-500">MTsN 14 Jakarta - Portal Game Edukasi</p>
                                 </div>
-                                <Button variant="outline" onClick={() => setCurrentView('landing')}>Kembali</Button>
+                                <Button variant="outline" onClick={() => setCurrentView('landing')}>Keluar</Button>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                                 <Card className="md:col-span-2">
                                     <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
                                         <span>🎮</span> Buat Ruang & Kustomisasi Game
@@ -644,10 +879,10 @@
 
                                         <div className="flex items-center justify-between pt-2">
                                             <div className="text-sm">
-                                                <span className="font-bold text-brand-navy">{generatedQuestions.length > 0 ? `${generatedQuestions.length} Soal Siap Digunakan` : 'Menggunakan Soal Default / AI'}</span>
+                                                <span className="font-bold text-brand-navy">{generatedQuestions.length > 0 ? `${generatedQuestions.length} Soal PG 4 Opsi (Acak) Siap` : 'Menggunakan Soal Default / AI'}</span>
                                             </div>
                                             <Button variant="outline" className="text-sm py-2" onClick={() => setAiModalOpen(true)}>
-                                                ✨ Generate Soal dengan AI
+                                                ✨ Generate Soal 4 Opsi (Gemini AI)
                                             </Button>
                                         </div>
                                     </div>
@@ -664,26 +899,63 @@
                                             <span className="text-xl">🤖</span>
                                             <div>
                                                 <div className="font-bold">AI Question Generator</div>
-                                                <div className="text-xs opacity-75">Buat soal otomatis sesuai mapel</div>
+                                                <div className="text-xs opacity-75">Buat 50 soal otomatis dengan AI</div>
                                             </div>
                                         </div>
                                         <div className="p-3 rounded-xl bg-blue-50 text-blue-700 font-medium flex items-center gap-3">
                                             <span className="text-xl">📝</span>
                                             <div>
-                                                <div className="font-bold">Bank Soal Saya</div>
-                                                <div className="text-xs opacity-75">Kelola daftar soal tersimpan</div>
-                                            </div>
-                                        </div>
-                                        <div className="p-3 rounded-xl bg-green-50 text-green-700 font-medium flex items-center gap-3">
-                                            <span className="text-xl">📊</span>
-                                            <div>
-                                                <div className="font-bold">Laporan & Statistik</div>
-                                                <div className="text-xs opacity-75">Analisis hasil belajar siswa</div>
+                                                <div className="font-bold">Bank Soal Mapel</div>
+                                                <div className="text-xs opacity-75">Kurikulum MTsN 14 Jakarta</div>
                                             </div>
                                         </div>
                                     </div>
                                 </Card>
                             </div>
+
+                            {/* Reports and History Section */}
+                            <Card>
+                                <div className="flex justify-between items-center mb-4">
+                                    <h2 className="text-xl font-bold flex items-center gap-2"><span>📊</span> Laporan Hasil & Riwayat Permainan</h2>
+                                    <span className="text-xs bg-slate-100 text-slate-700 px-3 py-1 rounded-full font-bold">{gameReports.length} Riwayat</span>
+                                </div>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left border-collapse">
+                                        <thead>
+                                            <tr className="border-b text-slate-500 text-sm">
+                                                <th className="p-3">Room ID</th>
+                                                <th className="p-3">Mata Pelajaran</th>
+                                                <th className="p-3">Tanggal</th>
+                                                <th className="p-3">Pemain</th>
+                                                <th className="p-3">Juara 1</th>
+                                                <th className="p-3">Akurasi</th>
+                                                <th className="p-3 text-right">Aksi</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {gameReports.map(rep => (
+                                                <tr key={rep.id} className="border-b hover:bg-slate-50">
+                                                    <td className="p-3 font-bold text-brand-navy">{rep.room}</td>
+                                                    <td className="p-3">{rep.subject}</td>
+                                                    <td className="p-3 text-sm text-slate-500">{rep.date}</td>
+                                                    <td className="p-3">{rep.playersCount} Siswa</td>
+                                                    <td className="p-3 font-bold text-brand-gold">🏆 {rep.topPlayer}</td>
+                                                    <td className="p-3 text-green-600 font-bold">{rep.avgAccuracy}</td>
+                                                    <td className="p-3 text-right">
+                                                        <button onClick={() => {
+                                                            setGameReports(gameReports.filter(r => r.id !== rep.id));
+                                                            showToast("Laporan berhasil dihapus", "success");
+                                                        }} className="bg-red-100 text-red-600 hover:bg-red-200 px-3 py-1 rounded-lg text-xs font-bold">Hapus</button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                            {gameReports.length === 0 && (
+                                                <tr><td colSpan="7" className="text-center py-6 text-slate-400">Belum ada riwayat permainan.</td></tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </Card>
                         </div>
 
                         {aiModalOpen && (
@@ -692,7 +964,7 @@
                                     <div className="flex justify-between items-center mb-6">
                                         <div className="flex items-center gap-2">
                                             <span className="text-2xl">🤖</span>
-                                            <h3 className="text-2xl font-bold text-brand-navy">AI Question Generator</h3>
+                                            <h3 className="text-2xl font-bold text-brand-navy">Gemini AI Question Generator</h3>
                                         </div>
                                         <button onClick={() => setAiModalOpen(false)} className="text-slate-400 hover:text-slate-600 font-bold text-xl">✕</button>
                                     </div>
@@ -704,15 +976,15 @@
                                         </div>
                                         <div>
                                             <label className="block text-sm font-bold text-slate-700 mb-1">Topik / Materi Pembelajaran</label>
-                                            <input type="text" value={aiMaterial} onChange={e => setAiMaterial(e.target.value)} placeholder="Contoh: Logika Algoritma / Aljabar / Tata Surya..." className="w-full p-3 border rounded-xl font-medium" />
+                                            <input type="text" value={aiMaterial} onChange={e => setAiMaterial(e.target.value)} placeholder="Contoh: Logika Algoritma / Aljabar / Zakat..." className="w-full p-3 border rounded-xl font-medium" />
                                         </div>
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
                                                 <label className="block text-sm font-bold text-slate-700 mb-1">Jumlah Soal</label>
                                                 <select value={aiCount} onChange={e => setAiCount(Number(e.target.value))} className="w-full p-3 border rounded-xl font-medium">
-                                                    <option value={5}>5 Soal</option>
-                                                    <option value={10}>10 Soal</option>
-                                                    <option value={15}>15 Soal</option>
+                                                    <option value={20}>20 Soal</option>
+                                                    <option value={35}>35 Soal</option>
+                                                    <option value={50}>50 Soal</option>
                                                 </select>
                                             </div>
                                             <div>
@@ -726,8 +998,8 @@
                                             </div>
                                         </div>
 
-                                        <Button onClick={generateQuestionsWithAI} disabled={aiLoading} className="w-full py-3 bg-purple-600 hover:bg-purple-700">
-                                            {aiLoading ? 'Sedang Membuat Soal...' : '✨ Generate Soal Sekarang'}
+                                        <Button onClick={generateQuestionsWithGeminiAI} disabled={aiLoading} className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold">
+                                            {aiLoading ? '🤖 Gemini AI sedang menyusun soal PG 4 opsi...' : '✨ Generate Soal 4 Opsi dengan Gemini AI'}
                                         </Button>
                                     </div>
 
@@ -738,7 +1010,13 @@
                                                 {generatedQuestions.map((item, idx) => (
                                                     <div key={idx} className="bg-slate-50 p-3 rounded-xl border text-sm">
                                                         <div className="font-bold text-brand-navy">{idx + 1}. {item.q}</div>
-                                                        <div className="text-xs text-slate-500 mt-1">Jawaban Benar: <span className="font-bold text-green-600">{item.options[item.answer]}</span></div>
+                                                        <div className="grid grid-cols-2 gap-1 mt-2 text-xs">
+                                                            {item.options.map((opt, oIdx) => (
+                                                                <div key={oIdx} className={`p-1 rounded ${oIdx === item.answer ? 'bg-green-100 font-bold text-green-800 border border-green-300' : 'bg-white text-slate-600'}`}>
+                                                                    {String.fromCharCode(65 + oIdx)}. {opt} {oIdx === item.answer ? ' (Kunci)' : ''}
+                                                                </div>
+                                                            ))}
+                                                        </div>
                                                     </div>
                                                 ))}
                                             </div>
@@ -816,12 +1094,7 @@
 
                                 <div className="flex gap-4 pt-4">
                                     <Button variant="outline" className="flex-1" onClick={() => setCurrentView('landing')}>Batal</Button>
-                                    <Button 
-                                        className="flex-1 text-lg" 
-                                        onClick={handleJoinClick}
-                                    >
-                                        Masuk Game 🚀
-                                    </Button>
+                                    <Button className="flex-1 text-lg" onClick={handleJoinClick}>Masuk Game 🚀</Button>
                                 </div>
                             </div>
                         </Card>
@@ -914,8 +1187,8 @@
                             {cells.map((c) => (
                                 <div key={c.num} className={`board-cell ${(c.row + c.col) % 2 === 0 ? 'cell-even' : 'cell-odd'} relative`}>
                                     <span className="absolute top-1 left-1 text-[10px] sm:text-xs opacity-50 font-bold">{c.num}</span>
-                                    {c.num === 1 && <span className="text-xs text-brand-teal font-bold opacity-100">START</span>}
-                                    {c.num === 100 && <span className="text-xs text-brand-gold font-bold opacity-100 text-center">🏆<br/>FINISH</span>}
+                                    {c.num === 1 && <span className="absolute bottom-1 right-1 text-[10px] text-brand-teal font-bold">START</span>}
+                                    {c.num === 100 && <span className="absolute top-1 right-1 text-[10px] text-brand-gold font-bold">FINISH</span>}
                                 </div>
                             ))}
 
@@ -1001,8 +1274,8 @@
                         <div className="w-full md:w-80 bg-white border-r border-slate-200 flex flex-col h-screen max-h-screen">
                             <div className="p-4 bg-brand-navy text-white">
                                 <div className="text-xs text-brand-gold font-bold mb-1">ROOM: {roomData.id}</div>
-                                <h2 className="font-display font-bold text-lg leading-tight">Matematika & Logika</h2>
-                                <p className="text-xs opacity-75">MTsN 14 Jakarta</p>
+                                <h2 className="font-display font-bold text-lg leading-tight">Ular Tangga Klasik MTsN 14</h2>
+                                <p className="text-xs opacity-75">50 Soal Acak</p>
                             </div>
                             
                             <div className="p-3 bg-slate-50 border-b flex justify-between items-center">
@@ -1069,7 +1342,7 @@
                                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand-navy bg-opacity-80 p-4 backdrop-blur-sm">
                                     <div className="bg-white rounded-3xl p-8 max-w-xl w-full shadow-2xl transform transition-all">
                                         <div className="flex justify-between items-center mb-6">
-                                            <div className="bg-brand-gold text-white text-sm font-bold px-3 py-1 rounded-full">SOAL EVALUASI</div>
+                                            <div className="bg-brand-gold text-white text-sm font-bold px-3 py-1 rounded-full">SOAL EVALUASI (4 OPSI)</div>
                                             <div className="text-brand-navy font-bold flex items-center gap-2">⏱️ {roomData.config.timer}s</div>
                                         </div>
                                         <h3 className="text-2xl font-bold text-brand-navy mb-8 leading-relaxed">
@@ -1156,8 +1429,8 @@
                                             <th className="p-3">Peringkat</th>
                                             <th className="p-3">Siswa</th>
                                             <th className="p-3">Posisi Akhir</th>
-                                            <th className="p-3 text-center">Jawaban Benar</th>
-                                            <th className="p-3 text-center">Jawaban Salah</th>
+                                            <th className="p-3 text-center">Benar</th>
+                                            <th className="p-3 text-center">Salah</th>
                                             <th className="p-3 text-right">Skor Total</th>
                                         </tr>
                                     </thead>
@@ -1200,6 +1473,7 @@
 
                     {currentView === 'landing' && <LandingScreen />}
                     {currentView === 'teacher_dash' && <TeacherDashboard />}
+                    {currentView === 'admin_dash' && <AdminDashboard />}
                     {currentView === 'join_room' && <StudentJoin />}
                     {currentView === 'lobby' && <Lobby />}
                     {currentView === 'playing' && <GamePlay />}
