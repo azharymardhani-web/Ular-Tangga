@@ -279,7 +279,7 @@
             const [aiSubject, setAiSubject] = useState('Informatika');
             const [aiClass, setAiClass] = useState('Kelas 8');
             const [aiMaterial, setAiMaterial] = useState('Analisis Data');
-            const [aiCount, setAiCount] = useState(20);
+            const [aiCount, setAiCount] = useState(50);
             const [aiDifficulty, setAiDifficulty] = useState('Sedang');
             const [selectedBoardTheme, setSelectedBoardTheme] = useState('classic');
             const [aiLoading, setAiLoading] = useState(false);
@@ -465,7 +465,10 @@
                     
                     const teacherSubject = currentTeacher?.subject || aiSubject;
                     const filteredQuestions = masterQuestionBank.filter(q => q.subject === teacherSubject);
-                    const activeQuestions = filteredQuestions.length > 0 ? filteredQuestions : (generatedQuestions.length > 0 ? generatedQuestions : SAMPLE_QUESTIONS);
+                    let activeQuestions = filteredQuestions.length > 0 ? filteredQuestions : (generatedQuestions.length > 0 ? generatedQuestions : SAMPLE_QUESTIONS);
+                    
+                    // Shuffle and pick 50 questions as requested
+                    activeQuestions = [...activeQuestions].sort(() => 0.5 - Math.random()).slice(0, 50);
 
                     const initialRoomData = {
                         id: newRoomId,
@@ -608,7 +611,7 @@
                         setIsProcessing(false);
                     } else {
                         playSound('wrong');
-                        showToast("Jawaban Salah! Tunggu soal berikutnya...", "error");
+                        showToast("Jawaban Salah! Coba soal berikutnya...", "error");
                         updatedPlayers[pIndex].wrong += 1;
                         
                         let newPos = updatedPlayers[pIndex].position - latestData.config.wrongPenalty;
@@ -1286,9 +1289,9 @@
                                             <div>
                                                 <label className="block text-sm font-bold text-slate-700 mb-1">Jumlah Soal</label>
                                                 <select value={aiCount} onChange={e => setAiCount(Number(e.target.value))} className="w-full p-3 border rounded-xl font-medium outline-none bg-white">
-                                                    <option value={10}>10 Soal</option>
                                                     <option value={20}>20 Soal</option>
-                                                    <option value={35}>35 Soal</option>
+                                                    <option value={50}>50 Soal</option>
+                                                    <option value={100}>100 Soal</option>
                                                 </select>
                                             </div>
                                             <div>
@@ -1303,7 +1306,7 @@
                                         </div>
 
                                         <Button onClick={generateQuestionsWithGeminiAI} disabled={aiLoading} className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold">
-                                            {aiLoading ? '🤖 Gemini AI sedang menyusun soal...' : '✨ Generate Soal Otomatis'}
+                                            {aiLoading ? '🤖 Gemini AI sedang menyusun soal...' : '✨ Generate 50 Soal Otomatis'}
                                         </Button>
                                     </div>
 
