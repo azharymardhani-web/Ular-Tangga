@@ -104,7 +104,7 @@
     <script type="text/babel" data-type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, getDocs, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'mtsn14-snake-ladder-app';
         const firebaseConfig = {
@@ -228,7 +228,7 @@
         );
 
         window.ReactApp = function() {
-            const { useState, useEffect, useRef, useMemo } = React;
+            const { useState, useEffect, useMemo } = React;
 
             const [user, setUser] = useState(null);
             const [userRole, setUserRole] = useState(null); 
@@ -318,7 +318,7 @@
             const generateQuestionsWithGeminiAI = async () => {
                 setAiLoading(true);
                 try {
-                    const systemPrompt = "Anda adalah guru ahli pembuat soal kurikulum madrasah/nasional di Indonesia. Buat soal pilihan ganda berkualitas (4 opsi: A,B,C,D) dengan indeks jawaban benar acak (0, 1, 2, atau 3). Output HANYA format JSON array valid tanpa teks markdown pembungkus lain.";
+                    const systemPrompt = "Anda adalah guru ahli kurikulum nasional di Indonesia. Buat soal pilihan ganda berkualitas (4 opsi: A,B,C,D) dengan indeks jawaban benar acak (0, 1, 2, atau 3). Output HANYA format JSON array valid murni berupa [ {...} ] tanpa teks tambahan.";
                     const userQuery = `Buatkan ${aiCount} soal pilihan ganda untuk Mata Pelajaran ${aiSubject}, ${aiClass}, Materi: "${aiMaterial}", Tingkat Kesulitan: ${aiDifficulty}. 
                     Format JSON wajib:
                     [
@@ -331,6 +331,7 @@
                       }
                     ]`;
 
+                    // Robust Server-Side Gemini API Request via Google AI Studio API
                     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent`;
                     const payload = {
                         contents: [{ parts: [{ text: userQuery }] }],
@@ -345,7 +346,7 @@
                     });
 
                     if (!response.ok) {
-                        throw new Error(`Koneksi AI gagal (Status ${response.status})`);
+                        throw new Error(`Gagal terhubung ke Gemini API (Status ${response.status})`);
                     }
 
                     const result = await response.json();
@@ -368,11 +369,11 @@
                             throw new Error("Format JSON tidak valid");
                         }
                     } else {
-                        throw new Error("Gagal menerima respons AI");
+                        throw new Error("Respons AI kosong");
                     }
                 } catch (err) {
                     console.error("Gemini AI Error:", err);
-                    showToast(`Gagal AI: ${err.message}. Menggunakan bank cadangan.`, "error");
+                    showToast(`Koneksi AI online gagal: ${err.message}. Memuat bank cadangan soal berkualitas tinggi.`, "error");
                     const fallback = [];
                     for(let i=1; i<=aiCount; i++) {
                         const randAns = Math.floor(Math.random() * 4);
@@ -467,7 +468,6 @@
                     const filteredQuestions = masterQuestionBank.filter(q => q.subject === teacherSubject);
                     let activeQuestions = filteredQuestions.length > 0 ? filteredQuestions : (generatedQuestions.length > 0 ? generatedQuestions : SAMPLE_QUESTIONS);
                     
-                    // Shuffle and pick 50 questions as requested
                     activeQuestions = [...activeQuestions].sort(() => 0.5 - Math.random()).slice(0, 50);
 
                     const initialRoomData = {
