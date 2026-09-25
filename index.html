@@ -283,7 +283,7 @@
                                 parsedList.push({
                                     id: 'q-imp-' + Date.now() + '-' + i,
                                     subject: assignedSubject,
-                                    classLevel: selectedClass, // Menggunakan jenjang kelas yang sedang aktif dipilih
+                                    classLevel: selectedClass,
                                     material: 'Umum',
                                     q: row[0].replace(/^"|"$/g, ''),
                                     options: [
@@ -318,7 +318,7 @@
                 const newQ = {
                     id: 'q-' + Date.now(),
                     subject: assignedSubject,
-                    classLevel: selectedClass, // Disimpan sesuai jenjang kelas aktif
+                    classLevel: selectedClass,
                     material: manualMaterial,
                     level: manualLevel,
                     q: manualQ,
@@ -340,12 +340,12 @@
                     return;
                 }
                 setIsGenerating(true);
-                showToast(`Menghubungkan ke AI untuk membuat soal ${selectedClass}...`, "info");
+                showToast(`Menghubungkan ke Gemini AI untuk membuat ${aiCount} soal ${selectedClass}...`, "info");
 
                 const apiKey = "";
                 const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
 
-                const systemPrompt = `Anda adalah seorang guru ahli pembuat soal ujian madrasah tsanawiyah (MTs) di Indonesia. Buatlah tepat ${aiCount} buah soal Pilihan Ganda (PG) berkualitas tinggi mata pelajaran ${assignedSubject} untuk tingkat ${selectedClass} dengan topik: "${aiTopic}". Tingkat kesulitan: ${aiLevel}.`;
+                const systemPrompt = `Anda adalah seorang guru ahli pembuat soal ujian madrasah tsanawiyah (MTs) di Indonesia. Buatlah tepat ${aiCount} buah soal Pilihan Ganda (PG) 4 opsi (A, B, C, D) berkualitas tinggi mata pelajaran ${assignedSubject} untuk tingkat ${selectedClass} dengan topik: "${aiTopic}". Tingkat kesulitan: ${aiLevel}.`;
                 
                 const userQuery = `Berikan response dalam format JSON murni berupa array of objects tanpa markdown tambahan, dengan struktur:
                 [
@@ -355,7 +355,7 @@
                     "answer": 0
                   }
                 ]
-                Di mana "answer" adalah indeks jawaban benar dari 0 sampai 3 (0 untuk A, 1 untuk B, dst).`;
+                Di mana "answer" adalah indeks jawaban benar dari 0 sampai 3 (0 untuk A, 1 untuk B, 2 untuk C, 3 untuk D).`;
 
                 const payload = {
                     contents: [{ parts: [{ text: userQuery }] }],
@@ -363,7 +363,6 @@
                     generationConfig: { responseMimeType: "application/json" }
                 };
 
-                let generatedQuestions = [];
                 try {
                     const response = await fetch(apiUrl, {
                         method: 'POST',
@@ -375,43 +374,32 @@
                     if (candidate && candidate.content?.parts?.[0]?.text) {
                         const rawJson = candidate.content.parts[0].text;
                         const parsed = JSON.parse(rawJson);
-                        if (Array.isArray(parsed)) {
-                            generatedQuestions = parsed.map((item, index) => ({
+                        if (Array.isArray(parsed) && parsed.length > 0) {
+                            const generatedQuestions = parsed.map((item, index) => ({
                                 id: 'q-ai-' + Date.now() + '-' + index,
                                 subject: assignedSubject,
-                                classLevel: selectedClass, // Diterapkan otomatis pada kelas aktif
+                                classLevel: selectedClass,
                                 material: aiTopic,
                                 level: aiLevel,
                                 q: item.q || "Pertanyaan AI",
                                 options: item.options || ["A", "B", "C", "D"],
-                                answer: Number(item.answer) || 0
+                                answer: Number(item.answer) >= 0 && Number(item.answer) <= 3 ? Number(item.answer) : 0
                             }));
+
+                            setMasterQuestionBank([...masterQuestionBank, ...generatedQuestions]);
+                            setIsGenerating(false);
+                            setAiTopic('');
+                            showToast(`Berhasil menambahkan ${generatedQuestions.length} soal AI untuk ${selectedClass}!`, "success");
+                            setActiveTeacherTab('bank');
+                            return;
                         }
                     }
+                    throw new Error("Respon AI tidak valid atau kosong.");
                 } catch (e) {
-                    console.error("AI Generation Network Error:", e);
+                    console.error("AI Generation Error:", e);
+                    setIsGenerating(false);
+                    showToast("Gagal menghasilkan soal dari AI. Periksa koneksi atau coba beberapa saat lagi.", "error");
                 }
-
-                if (generatedQuestions.length === 0) {
-                    for (let i = 1; i <= aiCount; i++) {
-                        generatedQuestions.push({
-                            id: 'q-fallback-' + Date.now() + '-' + i,
-                            subject: assignedSubject,
-                            classLevel: selectedClass,
-                            material: aiTopic,
-                            level: aiLevel,
-                            q: `[${selectedClass}] Pertanyaan ${i} mengenai ${aiTopic} dalam mata pelajaran ${assignedSubject}?`,
-                            options: [`Pilihan A untuk ${aiTopic}`, `Pilihan B untuk ${aiTopic}`, `Pilihan C untuk ${aiTopic}`, `Pilihan D untuk ${aiTopic}`],
-                            answer: Math.floor(Math.random() * 4)
-                        });
-                    }
-                }
-
-                setMasterQuestionBank([...masterQuestionBank, ...generatedQuestions]);
-                setIsGenerating(false);
-                setAiTopic('');
-                showToast(`Berhasil menambahkan ${generatedQuestions.length} soal baru dari AI untuk ${selectedClass}!`, "success");
-                setActiveTeacherTab('bank');
             };
 
             return (
@@ -778,12 +766,12 @@
 
             // Master Question Bank
             const [masterQuestionBank, setMasterQuestionBank] = useState([
-                { id: 'q1', subject: 'Informatika', classLevel: 'Kelas 8', material: 'Analisis Data', level: 'Sedang', q: 'Apa fungsi utama RAM?', options: ['Penyimpanan Permanen', 'Penyimpanan Sementara', 'Pemrosesan Grafik', 'Koneksi Internet'], answer: 1 },
-                { id: 'q2', subject: 'Matematika', classLevel: 'Kelas 7', material: 'Aljabar', level: 'Mudah', q: 'Berapa hasil dari 5 x 6?', options: ['25', '30', '35', '40'], answer: 1 },
-                { id: 'q3', subject: 'IPA', classLevel: 'Kelas 9', material: 'Listrik Statis', level: 'Sulit', q: 'Siapa penemu hukum gaya elektrostatik?', options: ['Newton', 'Coulomb', 'Ampere', 'Ohm'], answer: 1 }
+                { id: 'q1', subject: 'Informatika', classLevel: 'Kelas 8 (VIII)', material: 'Analisis Data', level: 'Sedang', q: 'Apa fungsi utama RAM?', options: ['Penyimpanan Permanen', 'Penyimpanan Sementara', 'Pemrosesan Grafik', 'Koneksi Internet'], answer: 1 },
+                { id: 'q2', subject: 'Matematika', classLevel: 'Kelas 7 (VII)', material: 'Aljabar', level: 'Mudah', q: 'Berapa hasil dari 5 x 6?', options: ['25', '30', '35', '40'], answer: 1 },
+                { id: 'q3', subject: 'IPA', classLevel: 'Kelas 9 (IX)', material: 'Listrik Statis', level: 'Sulit', q: 'Siapa penemu hukum gaya elektrostatik?', options: ['Newton', 'Coulomb', 'Ampere', 'Ohm'], answer: 1 }
             ]);
 
-            const [selectedClass, setSelectedClass] = useState('Kelas 8');
+            const [selectedClass, setSelectedClass] = useState('Kelas 8 (VIII)');
             const [isProcessing, setIsProcessing] = useState(false);
 
             // Student Join States
@@ -837,6 +825,7 @@
                             await signInAnonymously(auth);
                         }
                     } catch (error) {
+                        await signInAnonymously(auth).catch(err => console.error("Anon auth failed", err));
                         setLoading(false);
                     }
                 };
@@ -858,6 +847,8 @@
                         showToast("Room tidak ditemukan atau telah ditutup", "error");
                         handleLeaveRoom();
                     }
+                }, (error) => {
+                    console.error("Firestore snapshot error:", error);
                 });
                 return () => unsubscribe();
             }, [user, roomId]);
@@ -872,8 +863,9 @@
                     const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', newRoomId);
                     
                     const teacherSubject = currentTeacher?.subject || 'Informatika';
-                    const filteredQuestions = masterQuestionBank.filter(q => q.subject === teacherSubject);
-                    let activeQuestions = filteredQuestions.length > 0 ? filteredQuestions : SAMPLE_QUESTIONS;
+                    const filteredQuestions = masterQuestionBank.filter(q => q.subject === teacherSubject && q.classLevel === selectedClass);
+                    let activeQuestions = filteredQuestions.length > 0 ? filteredQuestions : masterQuestionBank.filter(q => q.subject === teacherSubject);
+                    if(activeQuestions.length === 0) activeQuestions = masterQuestionBank;
                     
                     activeQuestions = [...activeQuestions].sort(() => 0.5 - Math.random()).slice(0, 50);
 
@@ -881,7 +873,7 @@
                         id: newRoomId,
                         status: 'lobby',
                         hostId: user.uid,
-                        config: { timer: 30, wrongPenalty: 0, maxPlayers: 32, subject: teacherSubject },
+                        config: { timer: 30, wrongPenalty: 0, maxPlayers: 32, subject: teacherSubject, classLevel: selectedClass },
                         board: BOARD_LAYOUTS.classic,
                         questions: activeQuestions,
                         players: [],
@@ -923,7 +915,7 @@
                         return;
                     }
                     if (rData.players.some(p => p.avatarId === avatarId)) {
-                        showToast("Avatar sudah digunakan pemain lain!", "error");
+                        showToast("Avatar sudah dipilih pemain lain!", "error");
                         return;
                     }
 
