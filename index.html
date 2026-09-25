@@ -103,7 +103,7 @@
     <script type="text/babel" data-type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc, collection, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'mtsn14-snake-ladder-app';
         const firebaseConfig = {
@@ -126,9 +126,9 @@
         }
 
         const SUBJECTS = [
-            "Informatika", "Bahasa Indonesia", "Bahasa Inggris", "Matematika", 
-            "IPA", "IPS", "PPKn", "Al-Qur'an Hadis", "Akidah Akhlak", 
-            "Fikih", "SKI", "Bahasa Arab", "PJOK", "Seni Budaya", "Prakarya"
+            "Informatika", "Tahfidz", "PPKn", "SKI", "Al-Qur'an Hadis", "Prakarya", 
+            "Bahasa Indonesia", "Bahasa Inggris", "Matematika", "IPA", "IPS", 
+            "Akidah Akhlak", "Fikih", "Bahasa Arab", "PJOK", "Seni Budaya"
         ];
 
         const AVATARS = [
@@ -211,7 +211,9 @@
             setSelectedClass, 
             createRoom, 
             setCurrentView, 
-            showToast 
+            showToast,
+            db,
+            appId
         }) {
             const { useState } = React;
             const assignedSubject = currentTeacher?.subject || "Informatika";
@@ -254,7 +256,7 @@
                 const file = e.target.files[0];
                 if (!file) return;
                 const reader = new FileReader();
-                reader.onload = (evt) => {
+                reader.onload = async (evt) => {
                     try {
                         const text = evt.target.result;
                         const lines = text.split('\n');
@@ -265,7 +267,6 @@
                             const row = line.split(',');
                             if (row.length >= 6) {
                                 parsedList.push({
-                                    id: 'q-imp-' + Date.now() + '-' + i,
                                     subject: assignedSubject,
                                     classLevel: selectedClass,
                                     material: 'Umum',
@@ -277,13 +278,17 @@
                                         row[4].replace(/^"|"$/g, '')
                                     ],
                                     answer: parseInt(row[5]) || 0,
-                                    level: 'Sedang'
+                                    level: 'Sedang',
+                                    createdAt: Date.now()
                                 });
                             }
                         }
                         if (parsedList.length > 0) {
-                            setMasterQuestionBank([...masterQuestionBank, ...parsedList]);
-                            showToast(`Berhasil mengimpor ${parsedList.length} soal untuk ${assignedSubject} (${selectedClass})!`, "success");
+                            const qCol = collection(db, 'artifacts', appId, 'public', 'data', 'questions');
+                            for(let item of parsedList) {
+                                await addDoc(qCol, item);
+                            }
+                            showToast(`Berhasil menyimpan ${parsedList.length} soal untuk ${assignedSubject} (${selectedClass}) ke database!`, "success");
                         } else {
                             showToast("Format file tidak valid atau kosong.", "error");
                         }
@@ -294,28 +299,32 @@
                 reader.readAsText(file);
             };
 
-            const handleAddManualQuestion = () => {
+            const handleAddManualQuestion = async () => {
                 if (!manualQ || !manualOptA || !manualOptB || !manualOptC || !manualOptD) {
                     showToast("Harap isi pertanyaan dan semua pilihan opsi (A, B, C, D)!", "error");
                     return;
                 }
                 const newQ = {
-                    id: 'q-' + Date.now(),
                     subject: assignedSubject,
                     classLevel: selectedClass,
                     material: manualMaterial,
                     level: manualLevel,
                     q: manualQ,
                     options: [manualOptA, manualOptB, manualOptC, manualOptD],
-                    answer: Number(manualAns)
+                    answer: Number(manualAns),
+                    createdAt: Date.now()
                 };
-                setMasterQuestionBank([...masterQuestionBank, newQ]);
-                setManualQ('');
-                setManualOptA('');
-                setManualOptB('');
-                setManualOptC('');
-                setManualOptD('');
-                showToast(`Soal berhasil ditambahkan ke Bank Soal ${selectedClass}!`, "success");
+                try {
+                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'questions'), newQ);
+                    setManualQ('');
+                    setManualOptA('');
+                    setManualOptB('');
+                    setManualOptC('');
+                    setManualOptD('');
+                    showToast(`Soal berhasil ditambahkan ke Database Firebase!`, "success");
+                } catch(e) {
+                    showToast("Gagal menyimpan soal ke database", "error");
+                }
             };
 
             const handleGenerateAIQuestions = async () => {
@@ -329,7 +338,7 @@
                 const apiKey = "";
                 const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
 
-                const systemPrompt = `Anda adalah seorang guru ahli pembuat soal ujian madrasah tsanawiyah (MTs) di Indonesia. Buatlah tepat ${aiCount} buah soal Pilihan Ganda (PG) 4 opsi (A, B, C, D) berkualitas tinggi mata pelajaran ${assignedSubject} untuk tingkat ${selectedClass} dengan topik: "${aiTopic}". Tingkat kesulitan: ${aiLevel}.`;
+                const systemPrompt = `Anda adalah seorang guru ahli pembuat soal ujian madrasah tsanawiyah (MTs) di Indonesia. Berdasarkan standar kompetensi Kurikulum Merdeka (KBC), buatlah tepat ${aiCount} buah soal Pilihan Ganda (PG) 4 opsi (A, B, C, D) berkualitas tinggi mata pelajaran ${assignedSubject} untuk tingkat ${selectedClass} dengan topik: "${aiTopic}". Tingkat kesulitan: ${aiLevel}.`;
                 
                 const userQuery = `Berikan response dalam format JSON murni berupa array of objects tanpa markdown tambahan, dengan struktur:
                 [
@@ -359,21 +368,25 @@
                         const rawJson = candidate.content.parts[0].text;
                         const parsed = JSON.parse(rawJson);
                         if (Array.isArray(parsed) && parsed.length > 0) {
-                            const generatedQuestions = parsed.map((item, index) => ({
-                                id: 'q-ai-' + Date.now() + '-' + index,
+                            const generatedQuestions = parsed.map((item) => ({
                                 subject: assignedSubject,
                                 classLevel: selectedClass,
                                 material: aiTopic,
                                 level: aiLevel,
                                 q: item.q || "Pertanyaan AI",
                                 options: item.options || ["A", "B", "C", "D"],
-                                answer: Number(item.answer) >= 0 && Number(item.answer) <= 3 ? Number(item.answer) : 0
+                                answer: Number(item.answer) >= 0 && Number(item.answer) <= 3 ? Number(item.answer) : 0,
+                                createdAt: Date.now()
                             }));
 
-                            setMasterQuestionBank([...masterQuestionBank, ...generatedQuestions]);
+                            const qCol = collection(db, 'artifacts', appId, 'public', 'data', 'questions');
+                            for(let item of generatedQuestions) {
+                                await addDoc(qCol, item);
+                            }
+                            
                             setIsGenerating(false);
                             setAiTopic('');
-                            showToast(`Berhasil menambahkan ${generatedQuestions.length} soal AI untuk ${selectedClass}!`, "success");
+                            showToast(`Berhasil menyimpan ${generatedQuestions.length} soal AI ke Database Firebase!`, "success");
                             setActiveTeacherTab('bank');
                             return;
                         }
@@ -619,9 +632,13 @@
                                                     </div>
                                                     <div className="flex gap-2 self-end sm:self-center">
                                                         <button 
-                                                            onClick={() => {
-                                                                setMasterQuestionBank(masterQuestionBank.filter(item => item.id !== q.id));
-                                                                showToast("Soal berhasil dihapus dari bank soal", "info");
+                                                            onClick={async () => {
+                                                                try {
+                                                                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'questions', q.id));
+                                                                    showToast("Soal berhasil dihapus dari database", "info");
+                                                                } catch(e) {
+                                                                    showToast("Gagal menghapus soal", "error");
+                                                                }
                                                             }} 
                                                             className="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 text-xs font-bold transition-colors"
                                                         >
@@ -737,23 +754,15 @@
             const [teacherSelectedId, setTeacherSelectedId] = useState('');
             const [teacherPass, setTeacherPass] = useState('');
 
-            // Teachers List
-            const [teachersList, setTeachersList] = useState([
-                { id: 't1', name: 'Bpk. Ahmad, S.Kom', subject: 'Informatika', pass: 'guru123' },
-                { id: 't2', name: 'Ibu Siti, M.Pd', subject: 'Matematika', pass: 'guru123' },
-                { id: 't3', name: 'Bpk. Rahmat, S.Pd.I', subject: 'Al-Qur\'an Hadis', pass: 'guru123' }
-            ]);
+            // Teachers List - Dimuat dari Firebase
+            const [teachersList, setTeachersList] = useState([]);
             
             const [newTeacherName, setNewTeacherName] = useState('');
             const [newTeacherSubject, setNewTeacherSubject] = useState('Informatika');
             const [newTeacherPass, setNewTeacherPass] = useState('guru123');
 
-            // Master Question Bank
-            const [masterQuestionBank, setMasterQuestionBank] = useState([
-                { id: 'q1', subject: 'Informatika', classLevel: 'Kelas 8 (VIII)', material: 'Analisis Data', level: 'Sedang', q: 'Apa fungsi utama RAM?', options: ['Penyimpanan Permanen', 'Penyimpanan Sementara', 'Pemrosesan Grafik', 'Koneksi Internet'], answer: 1 },
-                { id: 'q2', subject: 'Matematika', classLevel: 'Kelas 7 (VII)', material: 'Aljabar', level: 'Mudah', q: 'Berapa hasil dari 5 x 6?', options: ['25', '30', '35', '40'], answer: 1 },
-                { id: 'q3', subject: 'IPA', classLevel: 'Kelas 9 (IX)', material: 'Listrik Statis', level: 'Sulit', q: 'Siapa penemu hukum gaya elektrostatik?', options: ['Newton', 'Coulomb', 'Ampere', 'Ohm'], answer: 1 }
-            ]);
+            // Master Question Bank - Dimuat dari Firebase
+            const [masterQuestionBank, setMasterQuestionBank] = useState([]);
 
             const [selectedClass, setSelectedClass] = useState('Kelas 8 (VIII)');
             const [isProcessing, setIsProcessing] = useState(false);
@@ -820,6 +829,47 @@
                 initAuth();
                 return () => unsubscribe();
             }, []);
+
+            useEffect(() => {
+                if (!user || !db) return;
+                
+                // Sync Teachers
+                const unsubTeachers = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'teachers'), async (snap) => {
+                    const loaded = [];
+                    snap.forEach(d => loaded.push({ id: d.id, ...d.data() }));
+                    if (loaded.length === 0) {
+                        const defaults = [
+                            { name: 'Ustadz Ali, S.Pd.I', subject: 'Tahfidz', pass: 'guru123' },
+                            { name: 'Ibu Budi, M.Pd', subject: 'PPKn', pass: 'guru123' },
+                            { name: 'Bpk. Ahmad, S.Kom', subject: 'Informatika', pass: 'guru123' }
+                        ];
+                        const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'teachers');
+                        for (let t of defaults) { await addDoc(colRef, t); }
+                    } else {
+                        setTeachersList(loaded);
+                    }
+                }, (err) => console.error("Sync teachers err:", err));
+
+                // Sync Questions
+                const unsubQuestions = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'questions'), async (snap) => {
+                    const loaded = [];
+                    snap.forEach(d => loaded.push({ id: d.id, ...d.data() }));
+                    if (loaded.length === 0) {
+                        const defaultQ = [
+                            { subject: 'Informatika', classLevel: 'Kelas 8 (VIII)', material: 'Kurikulum Merdeka', level: 'Sedang', q: 'Apa fungsi utama RAM?', options: ['Penyimpanan Permanen', 'Penyimpanan Sementara', 'Pemrosesan Grafik', 'Koneksi Internet'], answer: 1 },
+                            { subject: 'Tahfidz', classLevel: 'Kelas 7 (VII)', material: 'Kurikulum Merdeka', level: 'Mudah', q: 'Surah Al-Fatihah terdiri dari berapa ayat?', options: ['5 Ayat', '6 Ayat', '7 Ayat', '8 Ayat'], answer: 2 },
+                            { subject: 'PPKn', classLevel: 'Kelas 9 (IX)', material: 'Kurikulum Merdeka', level: 'Sedang', q: 'Sila ke-3 Pancasila berbunyi?', options: ['Kemanusiaan yang adil dan beradab', 'Persatuan Indonesia', 'Keadilan sosial', 'Ketuhanan Yang Maha Esa'], answer: 1 },
+                            { subject: 'SKI', classLevel: 'Kelas 8 (VIII)', material: 'Kurikulum Merdeka', level: 'Sedang', q: 'Siapakah khalifah pertama setelah Rasulullah wafat?', options: ['Umar bin Khattab', 'Usman bin Affan', 'Ali bin Abi Thalib', 'Abu Bakar Ash-Shiddiq'], answer: 3 }
+                        ];
+                        const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'questions');
+                        for (let q of defaultQ) { await addDoc(colRef, q); }
+                    } else {
+                        setMasterQuestionBank(loaded);
+                    }
+                }, (err) => console.error("Sync questions err:", err));
+
+                return () => { unsubTeachers(); unsubQuestions(); };
+            }, [user]);
 
             useEffect(() => {
                 if (!user || !roomId || !db) return;
@@ -1319,12 +1369,20 @@
                                         <label className="block text-sm font-bold text-slate-700 mb-1">Password Akses</label>
                                         <input type="text" value={newTeacherPass} onChange={(e) => setNewTeacherPass(e.target.value)} className="w-full p-3 border rounded-xl font-medium outline-none bg-white" />
                                     </div>
-                                    <Button onClick={() => {
+                                    <Button onClick={async () => {
                                         if(!newTeacherName.trim()) { showToast("Nama guru wajib diisi!", "error"); return; }
-                                        setTeachersList([...teachersList, { id: 't-'+Date.now(), name: newTeacherName, subject: newTeacherSubject, pass: newTeacherPass }]);
-                                        setNewTeacherName('');
-                                        setNewTeacherPass('guru123');
-                                        showToast("Akun guru berhasil ditambahkan!", "success");
+                                        try {
+                                            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'teachers'), { 
+                                                name: newTeacherName, 
+                                                subject: newTeacherSubject, 
+                                                pass: newTeacherPass 
+                                            });
+                                            setNewTeacherName('');
+                                            setNewTeacherPass('guru123');
+                                            showToast("Akun guru berhasil ditambahkan ke Database!", "success");
+                                        } catch(e) {
+                                            showToast("Gagal menyimpan akun guru ke database", "error");
+                                        }
                                     }} className="w-full bg-purple-600 hover:bg-purple-700">Simpan Akun Guru</Button>
                                 </div>
                             </Card>
@@ -1338,9 +1396,13 @@
                                                 <div className="font-bold text-brand-navy">{t.name}</div>
                                                 <div className="text-xs text-brand-teal font-medium">Mapel: {t.subject} | Password: {t.pass}</div>
                                             </div>
-                                            <button onClick={() => {
-                                                setTeachersList(teachersList.filter(item => item.id !== t.id));
-                                                showToast("Akun guru dihapus", "info");
+                                            <button onClick={async () => {
+                                                try {
+                                                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'teachers', t.id));
+                                                    showToast("Akun guru dihapus dari database", "info");
+                                                } catch(e) {
+                                                    showToast("Gagal menghapus akun guru", "error");
+                                                }
                                             }} className="text-red-500 hover:text-red-700 font-bold px-2 py-1">Hapus</button>
                                         </div>
                                     ))}
@@ -1587,6 +1649,8 @@
                             createRoom={createRoom}
                             setCurrentView={setCurrentView}
                             showToast={showToast}
+                            db={db}
+                            appId={appId}
                         />
                     )}
                     {currentView === 'admin_dash' && AdminDashboard()}
