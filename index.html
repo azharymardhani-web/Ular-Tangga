@@ -837,7 +837,10 @@
                 const unsubTeachers = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'teachers'), async (snap) => {
                     const loaded = [];
                     snap.forEach(d => loaded.push({ id: d.id, ...d.data() }));
-                    if (loaded.length === 0) {
+                    
+                    // Cegah auto-respawn jika admin sengaja menghapus semua guru
+                    if (loaded.length === 0 && !window.__isTeacherSeeded) {
+                        window.__isTeacherSeeded = true;
                         const defaults = [
                             { name: 'Ustadz Ali, S.Pd.I', subject: 'Tahfidz', pass: 'guru123' },
                             { name: 'Ibu Budi, M.Pd', subject: 'PPKn', pass: 'guru123' },
@@ -846,6 +849,7 @@
                         const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'teachers');
                         for (let t of defaults) { await addDoc(colRef, t); }
                     } else {
+                        window.__isTeacherSeeded = true;
                         setTeachersList(loaded);
                     }
                 }, (err) => console.error("Sync teachers err:", err));
@@ -854,7 +858,10 @@
                 const unsubQuestions = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'questions'), async (snap) => {
                     const loaded = [];
                     snap.forEach(d => loaded.push({ id: d.id, ...d.data() }));
-                    if (loaded.length === 0) {
+                    
+                    // Cegah auto-respawn jika admin/guru sengaja menghapus semua soal
+                    if (loaded.length === 0 && !window.__isQuestionsSeeded) {
+                        window.__isQuestionsSeeded = true;
                         const defaultQ = [
                             { subject: 'Informatika', classLevel: 'Kelas 8 (VIII)', material: 'Kurikulum Merdeka', level: 'Sedang', q: 'Apa fungsi utama RAM?', options: ['Penyimpanan Permanen', 'Penyimpanan Sementara', 'Pemrosesan Grafik', 'Koneksi Internet'], answer: 1 },
                             { subject: 'Tahfidz', classLevel: 'Kelas 7 (VII)', material: 'Kurikulum Merdeka', level: 'Mudah', q: 'Surah Al-Fatihah terdiri dari berapa ayat?', options: ['5 Ayat', '6 Ayat', '7 Ayat', '8 Ayat'], answer: 2 },
@@ -864,6 +871,7 @@
                         const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'questions');
                         for (let q of defaultQ) { await addDoc(colRef, q); }
                     } else {
+                        window.__isQuestionsSeeded = true;
                         setMasterQuestionBank(loaded);
                     }
                 }, (err) => console.error("Sync questions err:", err));
