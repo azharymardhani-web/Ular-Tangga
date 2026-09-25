@@ -39,9 +39,9 @@
     <style>
         body { background-color: #f8fafc; overflow-x: hidden; }
         .glass-panel {
-            background: rgba(255, 255, 255, 0.9);
+            background: rgba(255, 255, 255, 0.92);
             backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
             box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
         }
         .board-grid {
@@ -62,8 +62,8 @@
             align-items: center;
             justify-content: center;
             font-weight: bold;
-            font-size: 1.2rem;
-            color: rgba(0,0,0,0.3);
+            font-size: 1rem;
+            color: rgba(0,0,0,0.35);
             position: relative;
         }
         .cell-odd { background-color: #e0f2fe; }
@@ -77,7 +77,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.5rem;
+            font-size: 1.25rem;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
             transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
             z-index: 10;
@@ -87,10 +87,9 @@
         .offset-1 { transform: translate(20%, -20%); z-index: 14; }
         .offset-2 { transform: translate(-20%, 20%); z-index: 13; }
         .offset-3 { transform: translate(20%, 20%); z-index: 12; }
-        .offset-more { transform: scale(0.8); z-index: 11; }
         
-        .snake-line { stroke: #ef4444; stroke-width: 4; stroke-dasharray: 5,5; fill: none; opacity: 0.8;}
-        .ladder-line { stroke: #10b981; stroke-width: 6; opacity: 0.8; }
+        .snake-line { stroke: #ef4444; stroke-width: 4; stroke-dasharray: 6,4; fill: none; opacity: 0.85; }
+        .ladder-line { stroke: #10b981; stroke-width: 5; opacity: 0.85; }
         
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: #f1f1f1; }
@@ -127,7 +126,7 @@
         }
 
         const SUBJECTS = [
-            "Informatika","Tahfidz", "Bahasa Indonesia", "Bahasa Inggris", "Matematika", 
+            "Informatika", "Bahasa Indonesia", "Bahasa Inggris", "Matematika", 
             "IPA", "IPS", "PPKn", "Al-Qur'an Hadis", "Akidah Akhlak", 
             "Fikih", "SKI", "Bahasa Arab", "PJOK", "Seni Budaya", "Prakarya"
         ];
@@ -138,7 +137,7 @@
             { id: 'a3', name: 'Student Boy - Headset', icon: '🎧', bg: 'bg-purple-500' },
             { id: 'a4', name: 'Student Boy - Sport', icon: '⚽', bg: 'bg-green-500' },
             { id: 'a5', name: 'Student Boy - Scientist', icon: '👨‍🔬', bg: 'bg-teal-500' },
-            { id: 'a6', name: 'Student Boy - Programmer', icon: '👨‍💻', bg: 'bg-gray-700' },
+            { id: 'a6', name: 'Student Boy - Programmer', icon: '👨‍💻', bg: 'bg-slate-700' },
             { id: 'a7', name: 'Student Boy - Artist', icon: '👨‍🎨', bg: 'bg-orange-500' },
             { id: 'a8', name: 'Student Boy - Smart', icon: '🧠', bg: 'bg-red-500' },
             { id: 'a9', name: 'Student Girl - Hijab Blue', icon: '🧕', bg: 'bg-blue-400' },
@@ -167,19 +166,10 @@
             { id: 'a32', name: 'Future Leader', icon: '👑', bg: 'bg-amber-500' },
         ];
 
-        const SAMPLE_QUESTIONS = [
-            { q: "Apa ibukota Indonesia?", options: ["Jakarta", "Bandung", "Surabaya", "Medan"], answer: 0, level: "Mudah", subject: "IPS" },
-            { q: "Berapa hasil dari 5 x 6?", options: ["25", "30", "35", "40"], answer: 1, level: "Mudah", subject: "Matematika" },
-            { q: "Siapa penemu lampu pijar?", options: ["Albert Einstein", "Nikola Tesla", "Thomas Edison", "Isaac Newton"], answer: 2, level: "Sedang", subject: "IPA" },
-            { q: "Apa nama perangkat keras penyimpan data sementara?", options: ["Hardisk", "RAM", "ROM", "Flashdisk"], answer: 1, level: "Sedang", subject: "Informatika" },
-            { q: "Rukun Islam yang ketiga adalah?", options: ["Syahadat", "Shalat", "Zakat", "Puasa"], answer: 2, level: "Mudah", subject: "Agama" }
-        ];
-
-        // BOARD LAYOUT: Exact match to the reference image provided
         const BOARD_LAYOUTS = {
             classic: {
                 name: "Papan Klasik Sesuai Referensi Gambar",
-                snakes: { 99: 79, 93: 88, 89: 72, 74: 55, 62: 41, 54: 35, 32: 11, 5: 5 }, // exact head->tail mappings
+                snakes: { 99: 79, 93: 88, 89: 72, 74: 55, 62: 41, 54: 35, 32: 11, 5: 5 },
                 ladders: { 3: 18, 9: 29, 21: 40, 26: 76, 52: 68, 56: 95, 80: 99 }
             }
         };
@@ -206,14 +196,14 @@
 
         const Card = ({ children, className = '', onClick }) => (
             <div 
-                className={`glass-panel p-6 rounded-2xl ${onClick ? 'cursor-pointer' : ''} ${className}`} 
+                className={`glass-panel p-6 rounded-2xl ${onClick ? 'cursor-pointer hover:shadow-xl transition-shadow' : ''} ${className}`} 
                 onClick={onClick}
             >
                 {children}
             </div>
         );
 
-        const TeacherDashboard = ({ 
+        function TeacherDashboard({ 
             currentTeacher, 
             masterQuestionBank, 
             setMasterQuestionBank, 
@@ -221,20 +211,15 @@
             setSelectedClass, 
             createRoom, 
             setCurrentView, 
-            showToast, 
-            SUBJECTS,
-            AVATARS 
-        }) => {
+            showToast 
+        }) {
             const { useState } = React;
             const assignedSubject = currentTeacher?.subject || "Informatika";
             
-            // Tab states
             const [activeTeacherTab, setActiveTeacherTab] = useState('create'); 
-            
-            // Class filter for Question Bank view
             const [bankClassFilter, setBankClassFilter] = useState('Semua Kelas');
-            
             const [searchQuery, setSearchQuery] = useState('');
+            
             const [manualQ, setManualQ] = useState('');
             const [manualOptA, setManualOptA] = useState('');
             const [manualOptB, setManualOptB] = useState('');
@@ -250,7 +235,6 @@
             const [aiLevel, setAiLevel] = useState('Sedang');
             const [isGenerating, setIsGenerating] = useState(false);
 
-            // Filter questions by teacher's subject first
             const subjectQuestions = masterQuestionBank.filter(q => q.subject === assignedSubject);
 
             const downloadCsvTemplate = () => {
@@ -355,7 +339,7 @@
                     "answer": 0
                   }
                 ]
-                Di mana "answer" adalah indeks jawaban benar dari 0 sampai 3 (0 untuk A, 1 untuk B, 2 untuk C, 3 untuk D).`;
+                Di mana "answer" adalah indeks jawaban benar dari 0 sampai 3 (0 untuk A, 1 untuk B, 2 untuk C, 3 untuk D). Jangan sertakan dummy atau fallback; buatlah murni dari materi yang diminta.`;
 
                 const payload = {
                     contents: [{ parts: [{ text: userQuery }] }],
@@ -504,7 +488,7 @@
                                     <div className="border-b pb-4 flex justify-between items-center">
                                         <div>
                                             <h2 className="text-2xl font-bold text-brand-navy flex items-center gap-2"><span>✨</span> Generator Soal AI</h2>
-                                            <p className="text-slate-500 text-sm">Otomatis buat soal untuk <b>{selectedClass}</b></p>
+                                            <p className="text-slate-500 text-sm">Otomatis buat soal untuk <b>{selectedClass}</b> menggunakan Gemini</p>
                                         </div>
                                         <div className="text-right">
                                             <label className="text-xs font-bold text-slate-500 block mb-1">Target Kelas</label>
@@ -728,9 +712,9 @@
                     </div>
                 </div>
             );
-        };
+        }
 
-        window.ReactApp = function() {
+        function ReactApp() {
             const { useState, useEffect, useMemo } = React;
 
             const [user, setUser] = useState(null);
@@ -753,7 +737,7 @@
             const [teacherSelectedId, setTeacherSelectedId] = useState('');
             const [teacherPass, setTeacherPass] = useState('');
 
-            // Teachers & Reports
+            // Teachers List
             const [teachersList, setTeachersList] = useState([
                 { id: 't1', name: 'Bpk. Ahmad, S.Kom', subject: 'Informatika', pass: 'guru123' },
                 { id: 't2', name: 'Ibu Siti, M.Pd', subject: 'Matematika', pass: 'guru123' },
@@ -1603,8 +1587,6 @@
                             createRoom={createRoom}
                             setCurrentView={setCurrentView}
                             showToast={showToast}
-                            SUBJECTS={SUBJECTS}
-                            AVATARS={AVATARS}
                         />
                     )}
                     {currentView === 'admin_dash' && AdminDashboard()}
@@ -1617,7 +1599,7 @@
                     {roomData && roomData.status === 'finished' && currentView !== 'finished' && (() => { setCurrentView('finished'); return null; })()}
                 </div>
             );
-        };
+        }
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<ReactApp />);
