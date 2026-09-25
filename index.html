@@ -165,9 +165,74 @@
 
         const BOARD_LAYOUTS = {
             classic: {
-                name: "Papan Klasik Sesuai Referensi Gambar",
-                snakes: { 99: 79, 93: 88, 89: 72, 74: 55, 62: 41, 54: 35, 32: 11, 5: 5 },
+                name: "1. Klasik Tradisional",
+                bgTheme: "bg-white",
+                cellColors: ['bg-rose-200', 'bg-amber-200', 'bg-emerald-200', 'bg-sky-200', 'bg-violet-200'],
+                snakes: { 99: 79, 93: 88, 89: 72, 74: 55, 62: 41, 54: 35, 32: 11, 16: 4 },
                 ladders: { 3: 18, 9: 29, 21: 40, 26: 76, 52: 68, 56: 95, 80: 99 }
+            },
+            islamic: {
+                name: "2. Islamic Heritage (Nuansa Madinah)",
+                bgTheme: "bg-emerald-50",
+                cellColors: ['bg-emerald-100', 'bg-amber-100', 'bg-teal-100', 'bg-yellow-50', 'bg-lime-100'],
+                snakes: { 98: 80, 91: 73, 85: 66, 68: 45, 59: 38, 47: 22, 28: 10 },
+                ladders: { 4: 25, 13: 42, 33: 54, 50: 77, 61: 89, 70: 96 }
+            },
+            space: {
+                name: "3. Futuristic Galaxy (Eksplorasi Antariksa)",
+                bgTheme: "bg-slate-900 text-white",
+                cellColors: ['bg-slate-800', 'bg-indigo-900', 'bg-purple-950', 'bg-blue-950', 'bg-zinc-800'],
+                snakes: { 97: 76, 92: 65, 84: 52, 75: 44, 63: 31, 48: 15, 30: 5 },
+                ladders: { 2: 23, 12: 34, 27: 58, 40: 72, 55: 86, 78: 98 }
+            },
+            ocean: {
+                name: "4. Deep Ocean (Petualangan Bawah Laut)",
+                bgTheme: "bg-cyan-950 text-white",
+                cellColors: ['bg-cyan-900', 'bg-blue-900', 'bg-teal-900', 'bg-sky-900', 'bg-indigo-950'],
+                snakes: { 99: 81, 90: 67, 82: 58, 71: 49, 60: 36, 42: 20, 25: 8 },
+                ladders: { 5: 22, 18: 39, 32: 56, 48: 75, 64: 88, 83: 97 }
+            },
+            jungle: {
+                name: "5. Safari Rimba Hijau (Wild Amazon)",
+                bgTheme: "bg-lime-950",
+                cellColors: ['bg-lime-200', 'bg-emerald-200', 'bg-green-300', 'bg-teal-200', 'bg-amber-100'],
+                snakes: { 95: 78, 88: 69, 79: 57, 67: 43, 53: 30, 39: 14, 20: 3 },
+                ladders: { 7: 28, 19: 45, 36: 62, 51: 74, 70: 92, 81: 99 }
+            },
+            cyberpunk: {
+                name: "6. Cyber Tech City (Informatika & AI)",
+                bgTheme: "bg-zinc-950 text-cyan-400",
+                cellColors: ['bg-zinc-900', 'bg-slate-900', 'bg-purple-950', 'bg-cyan-950', 'bg-neutral-900'],
+                snakes: { 96: 77, 89: 70, 80: 53, 72: 41, 58: 33, 45: 19, 23: 7 },
+                ladders: { 6: 24, 15: 38, 31: 59, 49: 71, 65: 87, 82: 98 }
+            },
+            volcano: {
+                name: "7. Volcano Inferno (Tantangan Lahar Panas)",
+                bgTheme: "bg-red-950",
+                cellColors: ['bg-orange-200', 'bg-red-200', 'bg-amber-300', 'bg-rose-200', 'bg-yellow-100'],
+                snakes: { 98: 75, 91: 64, 83: 50, 74: 40, 61: 29, 46: 18, 21: 6 },
+                ladders: { 3: 20, 14: 35, 28: 57, 44: 68, 62: 85, 79: 99 }
+            },
+            candy: {
+                name: "8. Sweet Candy Land (Negeri Manisan)",
+                bgTheme: "bg-pink-100",
+                cellColors: ['bg-pink-200', 'bg-purple-200', 'bg-rose-200', 'bg-fuchsia-200', 'bg-sky-200'],
+                snakes: { 99: 82, 92: 71, 85: 60, 73: 48, 59: 34, 43: 17, 26: 9 },
+                ladders: { 8: 26, 16: 41, 35: 63, 52: 76, 66: 90, 80: 97 }
+            },
+            desert: {
+                name: "9. Desert Oasis (Padang Pasir Eksotis)",
+                bgTheme: "bg-amber-50",
+                cellColors: ['bg-amber-200', 'bg-orange-200', 'bg-yellow-200', 'bg-stone-200', 'bg-amber-100'],
+                snakes: { 97: 74, 90: 68, 81: 55, 70: 42, 56: 32, 41: 16, 24: 5 },
+                ladders: { 4: 21, 17: 37, 29: 61, 48: 73, 67: 89, 84: 98 }
+            },
+            fantasy: {
+                name: "10. Enchanted Forest (Hutan Peri Ajaib)",
+                bgTheme: "bg-violet-950 text-white",
+                cellColors: ['bg-violet-900', 'bg-fuchsia-900', 'bg-purple-900', 'bg-indigo-900', 'bg-slate-900'],
+                snakes: { 98: 78, 93: 69, 86: 59, 75: 47, 62: 35, 50: 20, 22: 8 },
+                ladders: { 3: 24, 15: 43, 30: 58, 46: 72, 64: 88, 81: 99 }
             }
         };
 
@@ -210,7 +275,9 @@
             setCurrentView, 
             showToast,
             db,
-            appId
+            appId,
+            selectedBoardKey,
+            setSelectedBoardKey
         }) {
             const { useState, useEffect } = React;
             const assignedSubject = currentTeacher?.subject || "Informatika";
@@ -463,6 +530,19 @@
                                                     <option value="Kelas 9 (IX)">Kelas 9 (IX)</option>
                                                 </select>
                                             </div>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-slate-500 mb-1 font-medium">Pilih Desain / Tema Papan Ular Tangga (10 Pilihan)</label>
+                                            <select 
+                                                value={selectedBoardKey} 
+                                                onChange={e => setSelectedBoardKey(e.target.value)} 
+                                                className="w-full p-3 border rounded-xl bg-white font-bold text-brand-navy outline-none"
+                                            >
+                                                {Object.entries(BOARD_LAYOUTS).map(([key, b]) => (
+                                                    <option key={key} value={key}>{b.name}</option>
+                                                ))}
+                                            </select>
                                         </div>
 
                                         <div className="flex items-center justify-between pt-2 text-sm font-bold text-brand-navy">
@@ -809,6 +889,7 @@
             const [masterQuestionBank, setMasterQuestionBank] = useState([]);
 
             const [selectedClass, setSelectedClass] = useState('Kelas 8 (VIII)');
+            const [selectedBoardKey, setSelectedBoardKey] = useState('classic');
             const [isProcessing, setIsProcessing] = useState(false);
 
             // Admin Settings States
@@ -1027,12 +1108,14 @@
                     
                     activeQuestions = [...activeQuestions].sort(() => 0.5 - Math.random()).slice(0, 50);
 
+                    const chosenBoard = BOARD_LAYOUTS[selectedBoardKey] || BOARD_LAYOUTS.classic;
+
                     const initialRoomData = {
                         id: newRoomId,
                         status: 'lobby',
                         hostId: user.uid,
-                        config: { timer: 30, wrongPenalty: 0, maxPlayers: 32, subject: teacherSubject, classLevel: selectedClass },
-                        board: BOARD_LAYOUTS.classic,
+                        config: { timer: 30, wrongPenalty: 0, maxPlayers: 32, subject: teacherSubject, classLevel: selectedClass, boardName: chosenBoard.name },
+                        board: chosenBoard,
                         questions: activeQuestions,
                         players: [],
                         createdAt: Date.now()
@@ -1043,7 +1126,6 @@
                     setUserRole('teacher');
                     setCurrentView('lobby');
                     
-                    // Simpan sesi Guru ke memori perangkat
                     localStorage.setItem('mt14_roomId', newRoomId);
                     localStorage.setItem('mt14_role', 'teacher');
                 } catch (e) {
@@ -1624,22 +1706,26 @@
                     return { row: 9 - row, col: actualCol };
                 };
 
-                const cellColors = ['bg-rose-200', 'bg-amber-200', 'bg-emerald-200', 'bg-sky-200', 'bg-violet-200'];
+                const currentBoardDef = roomData.board || BOARD_LAYOUTS.classic;
+                const cellColors = currentBoardDef.cellColors || ['bg-rose-200', 'bg-amber-200', 'bg-emerald-200', 'bg-sky-200', 'bg-violet-200'];
 
                 return (
-                    <div className="relative w-full max-w-2xl mx-auto shadow-2xl rounded-xl">
+                    <div className={`relative w-full max-w-2xl mx-auto shadow-2xl rounded-xl p-3 ${currentBoardDef.bgTheme || 'bg-white'}`}>
+                        <div className="mb-2 text-center font-bold text-xs opacity-75 uppercase tracking-wider">
+                            Tema Papan: {currentBoardDef.name || 'Klasik'}
+                        </div>
                         <div className="board-grid">
                             {boardCells.map((c) => (
-                                <div key={c.num} className={`board-cell ${cellColors[c.num % 5]} relative border border-white/50 shadow-inner`}>
-                                    <span className="absolute top-1 left-1 text-[10px] sm:text-xs text-slate-700 font-bold opacity-75">{c.num}</span>
-                                    {c.num === 1 && <span className="absolute bottom-1 right-1 text-[10px] text-brand-navy font-bold bg-white/50 px-1 rounded">START</span>}
-                                    {c.num === 100 && <span className="absolute top-1 right-1 text-[10px] text-brand-navy font-bold bg-white/50 px-1 rounded">FINISH</span>}
+                                <div key={c.num} className={`board-cell ${cellColors[c.num % cellColors.length]} relative border border-white/40 shadow-inner`}>
+                                    <span className="absolute top-1 left-1 text-[10px] sm:text-xs font-bold opacity-75">{c.num}</span>
+                                    {c.num === 1 && <span className="absolute bottom-1 right-1 text-[9px] font-bold bg-white/70 px-1 rounded text-black">START</span>}
+                                    {c.num === 100 && <span className="absolute top-1 right-1 text-[9px] font-bold bg-white/70 px-1 rounded text-black">FINISH</span>}
                                 </div>
                             ))}
 
                             <svg viewBox="0 0 100 100" className="absolute top-0 left-0 w-full h-full pointer-events-none drop-shadow-lg" style={{ zIndex: 5 }}>
                                 {/* Render Ladders */}
-                                {Object.entries(roomData.board.ladders).map(([start, end]) => {
+                                {Object.entries(currentBoardDef.ladders || {}).map(([start, end]) => {
                                     const sCoord = getCellCoords(parseInt(start));
                                     const eCoord = getCellCoords(end);
                                     
@@ -1655,10 +1741,8 @@
 
                                     return (
                                         <g key={`l-${start}`} transform={`translate(${sX} ${sY}) rotate(${angle})`}>
-                                            {/* Tiang Tangga Kiri & Kanan */}
                                             <line x1="0" y1="-2" x2={length} y2="-2" stroke="#92400e" strokeWidth="1" strokeLinecap="round" />
                                             <line x1="0" y1="2" x2={length} y2="2" stroke="#92400e" strokeWidth="1" strokeLinecap="round" />
-                                            {/* Anak Tangga */}
                                             {Array.from({length: Math.floor(length / 2.5)}).map((_, i) => (
                                                 <line key={`rung-${i}`} x1={(i+1)*2.5} y1="-2" x2={(i+1)*2.5} y2="2" stroke="#b45309" strokeWidth="0.8" />
                                             ))}
@@ -1667,11 +1751,10 @@
                                 })}
 
                                 {/* Render Snakes */}
-                                {Object.entries(roomData.board.snakes).map(([start, end]) => {
+                                {Object.entries(currentBoardDef.snakes || {}).map(([start, end]) => {
                                     const sCoord = getCellCoords(parseInt(start));
                                     const eCoord = getCellCoords(end);
                                     
-                                    // Ular meluncur ke bawah: start adalah nomor besar (kepala), end adalah nomor kecil (ekor)
                                     const sX = (sCoord.col * 10) + 5;
                                     const sY = (sCoord.row * 10) + 5;
                                     const eX = (eCoord.col * 10) + 5;
@@ -1680,30 +1763,24 @@
                                     const dx = eX - sX;
                                     const dy = eY - sY;
                                     
-                                    // Menggunakan kurva Bezier untuk membuat badan ular terlihat meliuk (slithering)
                                     const midX1 = sX + (dx * 0.2) + (dy * 0.4);
                                     const midY1 = sY + (dy * 0.2) - (dx * 0.4);
                                     const midX2 = sX + (dx * 0.8) - (dy * 0.4);
                                     const midY2 = sY + (dy * 0.8) + (dx * 0.4);
                                     const path = `M ${sX} ${sY} C ${midX1} ${midY1}, ${midX2} ${midY2}, ${eX} ${eY}`;
                                     
-                                    // Hitung sudut kemiringan untuk posisi kepala ular
                                     const headAngle = Math.atan2(midY1 - sY, midX1 - sX) * (180 / Math.PI);
 
                                     return (
                                         <g key={`s-${start}`}>
-                                            {/* Badan Ular */}
                                             <path d={path} fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" />
                                             <path d={path} fill="none" stroke="#14532d" strokeWidth="0.8" strokeDasharray="0.8 1.5" strokeLinecap="round" />
-                                            {/* Kepala Ular */}
                                             <g transform={`translate(${sX} ${sY}) rotate(${headAngle})`}>
                                                 <ellipse cx="0" cy="0" rx="2.5" ry="1.8" fill="#16a34a" />
-                                                {/* Mata */}
                                                 <circle cx="1" cy="-1" r="0.6" fill="white" />
                                                 <circle cx="1" cy="1" r="0.6" fill="white" />
                                                 <circle cx="1.2" cy="-1" r="0.25" fill="black" />
                                                 <circle cx="1.2" cy="1" r="0.25" fill="black" />
-                                                {/* Lidah */}
                                                 <path d="M 2.5 0 L 4.5 0 L 5.5 -0.8 M 4.5 0 L 5.5 0.8" fill="none" stroke="#ef4444" strokeWidth="0.4" strokeLinecap="round" strokeLinejoin="round" />
                                             </g>
                                         </g>
@@ -1903,6 +1980,8 @@
                             showToast={showToast}
                             db={db}
                             appId={appId}
+                            selectedBoardKey={selectedBoardKey}
+                            setSelectedBoardKey={setSelectedBoardKey}
                         />
                     )}
                     {currentView === 'admin_dash' && AdminDashboard()}
