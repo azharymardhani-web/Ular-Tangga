@@ -318,34 +318,90 @@
             const generateQuestionsWithGeminiAI = async () => {
                 setAiLoading(true);
                 try {
-                    // Menggunakan API Key dari Firebase yang Anda berikan
+                    // Menggunakan API Key AIzaSy (dari Firebase Anda) yang valid untuk server Google
                     const apiKey = "AIzaSyA3v19W60OQ5qfKYELEvmmkKaO-Gf6zHgs";
                     
-                    const systemPrompt = "Anda adalah guru ahli kurikulum nasional di Indonesia. Buat soal pilihan ganda berkualitas (4 opsi: A,B,C,D) dengan indeks jawaban benar acak (0, 1, 2, atau 3). Output HANYA format JSON array valid murni berupa [ {...} ] tanpa teks tambahan.";
-                    const userQuery = `Buatkan ${aiCount} soal pilihan ganda untuk Mata Pelajaran ${aiSubject}, ${aiClass}, Materi: "${aiMaterial}", Tingkat Kesulitan: ${aiDifficulty}. Format JSON array murni: [{"q":"...","options":["A","B","C","D"],"answer":0,"level":"${aiDifficulty}","subject":"${aiSubject}"}]`;
+                    // Fitur Tersembunyi: Jika di Github key di atas mati, Anda bisa menimpanya dari Console Browser:
+                    // localStorage.setItem('gemini_api_key', 'AIzaSy_KEY_YANG_BENAR')
+                    const activeApiKey = localStorage.getItem('gemini_api_key') || apiKey;
+                    
+                    const promptText = `Anda adalah guru ahli kurikulum nasional di Indonesia. Tugas Anda: Buat soal pilihan ganda berkualitas (4 opsi: A,B,C,D) dengan indeks jawaban benar acak (0, 1, 2, atau 3).
+OUTPUT WAJIB HANYA FORMAT JSON ARRAY MURNI TANPA TEKS APAPUN (tanpa tag markdown json).
+Tugas: Buatkan ${aiCount} soal pilihan ganda untuk Mata Pelajaran ${aiSubject}, ${aiClass}, Materi: "${aiMaterial}", Tingkat Kesulitan: ${aiDifficulty}. 
+Format JSON yang diharapkan HANYA SEPERTI INI:
+[
+  {"q": "Pertanyaan?", "options": ["A", "B", "C", "D"], "answer": 0, "level": "${aiDifficulty}", "subject": "${aiSubject}"}
+]`;
 
-                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+                    // Menggunakan model gemini-1.5-flash yang paling stabil dan didukung secara resmi
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${activeApiKey}`;
                     const payload = {
-                        contents: [{ parts: [{ text: userQuery }] }],
-                        systemInstruction: { parts: [{ text: systemPrompt }] },
-                        generationConfig: { responseMimeType: "application/json" }
+                        contents: [{ parts: [{ text: promptText }] }],
+                        generationConfig: { 
+                            responseMimeType: "application/json",
+                            temperature: 0.7 
+                        }
                     };
 
-                    const response = await fetch(apiUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
+                    let response;
+                    let retries = 3;
+                    let attempt = 0;
+                    let lastErrorMsg = "";
+                    let isSuccess = false;
 
-                    if (!response.ok) {
-                        throw new Error(`API Error status ${response.status}`);
+                    while (attempt < retries) {
+                        try {
+                            response = await fetch(apiUrl, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(payload)
+                            });
+
+                            if (response.ok) {
+                                isSuccess = true;
+                                break; // Berhasil, keluar dari loop
+                            }
+
+                            const errorData = await response.json();
+                            lastErrorMsg = errorData.error?.message || `HTTP Error ${response.status}`;
+
+                            // Jika server sibuk (High Demand / 503 / 429), lakukan delay lalu coba lagi
+                            if (lastErrorMsg.toLowerCase().includes("high demand") || response.status === 429 || response.status === 503) {
+                                attempt++;
+                                if (attempt < retries) {
+                                    showToast(`Server AI Google sibuk. Mencoba ulang (${attempt}/${retries})... Tunggu sebentar.`, "info");
+                                    // Tunggu 2 detik, lalu 4 detik pada percobaan berikutnya
+                                    await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
+                                }
+                            } else {
+                                // Error lain (seperti API key salah) langsung lemparkan error tanpa retry
+                                throw new Error(lastErrorMsg);
+                            }
+                        } catch (e) {
+                            if (e.message !== lastErrorMsg) lastErrorMsg = e.message;
+                            // Jika errornya bukan karena high demand, langsung lempar
+                            if (!lastErrorMsg.toLowerCase().includes("high demand") && !lastErrorMsg.toLowerCase().includes("fetch")) {
+                                throw new Error(lastErrorMsg);
+                            }
+                            attempt++;
+                            if (attempt < retries) {
+                                await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
+                            }
+                        }
+                    }
+
+                    if (!isSuccess || !response) {
+                        throw new Error(lastErrorMsg || "Gagal terhubung ke AI setelah beberapa kali percobaan.");
                     }
 
                     const result = await response.json();
                     const candidate = result.candidates?.[0];
                     if (candidate && candidate.content?.parts?.[0]?.text) {
-                        let text = candidate.content.parts[0].text;
-                        text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+                        let text = candidate.content.parts[0].text.trim();
+                        
+                        // Sistem pembersih format JSON tingkat tinggi (Anti-Error Parsing)
+                        if (text.startsWith("```json")) text = text.replace(/^```json/, "").replace(/```$/, "").trim();
+                        else if (text.startsWith("```")) text = text.replace(/^```/, "").replace(/```$/, "").trim();
                         
                         const firstBracket = text.indexOf('[');
                         const lastBracket = text.lastIndexOf(']');
@@ -358,25 +414,29 @@
                             setGeneratedQuestions(parsed);
                             showToast(`Berhasil generate ${parsed.length} soal dengan Gemini AI!`, "success");
                         } else {
-                            throw new Error("Invalid JSON format");
+                            throw new Error("Format JSON dari AI tidak valid");
                         }
                     } else {
-                        throw new Error("Empty response from AI");
+                        throw new Error("Respons kosong dari AI");
                     }
                 } catch (err) {
-                    console.warn("AI remote fetch notice, generating high-quality curriculum fallback questions...", err);
+                    console.error("AI Fetch Error:", err);
                     
-                    if (err.message.includes("403") || err.message.includes("400")) {
-                        showToast("Error 403: API Key Gemini belum diisi di dalam kode HTML. Menggunakan bank soal darurat...", "error");
+                    // Notifikasi khusus agar Guru tahu penyebab pastinya (Bukan salah aplikasinya)
+                    if (err.message.includes("API key not valid") || err.message.toLowerCase().includes("key")) {
+                        showToast("KONEKSI DITOLAK GOOGLE: Format API Key salah. Harus berawalan 'AIzaSy...'", "error");
+                    } else if (err.message.toLowerCase().includes("high demand")) {
+                        showToast("SERVER GOOGLE PENUH: Terlalu banyak antrean. Soal cadangan diaktifkan.", "error");
                     } else {
-                        showToast(`Gagal: ${err.message}. Menggunakan soal darurat...`, "error");
+                        showToast(`GAGAL TERHUBUNG AI: ${err.message}`, "error");
                     }
 
+                    // Menghasilkan Soal Darurat agar kelas tidak bubar/macet
                     const fallback = [];
                     for(let i = 1; i <= aiCount; i++) {
                         const randAns = Math.floor(Math.random() * 4);
                         fallback.push({
-                            q: `Pertanyaan ${i} mengenai ${aiMaterial} dalam mata pelajaran ${aiSubject} (${aiDifficulty})?`,
+                            q: `[SISTEM DARURAT AI OFF] Pertanyaan ${i} mengenai ${aiMaterial} pada mapel ${aiSubject}?`,
                             options: [
                                 `Pilihan A untuk topik ${aiMaterial}`,
                                 `Pilihan B untuk topik ${aiMaterial}`,
