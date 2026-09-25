@@ -236,6 +236,7 @@
             const [aiCount, setAiCount] = useState(10);
             const [aiLevel, setAiLevel] = useState('Sedang');
             const [isGenerating, setIsGenerating] = useState(false);
+            const [customApiKey, setCustomApiKey] = useState(localStorage.getItem('gemini_api_key') || '');
 
             const subjectQuestions = masterQuestionBank.filter(q => q.subject === assignedSubject);
 
@@ -335,7 +336,7 @@
                 setIsGenerating(true);
                 showToast(`Menghubungkan ke Gemini AI untuk membuat ${aiCount} soal ${selectedClass}...`, "info");
 
-                const apiKey = "";
+                const apiKey = customApiKey.trim() || "";
                 const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
 
                 const systemPrompt = `Anda adalah seorang guru ahli pembuat soal ujian madrasah tsanawiyah (MTs) di Indonesia. Berdasarkan standar kompetensi Kurikulum Merdeka (KBC), buatlah tepat ${aiCount} buah soal Pilihan Ganda (PG) 4 opsi (A, B, C, D) berkualitas tinggi mata pelajaran ${assignedSubject} untuk tingkat ${selectedClass} dengan topik: "${aiTopic}". Tingkat kesulitan: ${aiLevel}.`;
@@ -514,6 +515,21 @@
                                     </div>
 
                                     <div className="space-y-4">
+                                        <div className="bg-purple-50 p-4 rounded-xl border border-purple-100 mb-4">
+                                            <label className="block text-xs font-bold text-purple-800 mb-1 uppercase">Gemini API Key (Wajib jika aplikasi di Github)</label>
+                                            <input 
+                                                type="password" 
+                                                value={customApiKey} 
+                                                onChange={e => {
+                                                    setCustomApiKey(e.target.value);
+                                                    localStorage.setItem('gemini_api_key', e.target.value);
+                                                }} 
+                                                placeholder="Paste API Key AIzaSy... (Kosongkan jika main di web platform ini)" 
+                                                className="w-full p-2.5 border border-purple-200 rounded-lg text-sm outline-none bg-white focus:border-purple-600" 
+                                            />
+                                            <p className="text-[10px] text-purple-600 mt-1 font-medium">Dapatkan key gratis di <a href="https://aistudio.google.com/app/apikey" target="_blank" className="underline font-bold">Google AI Studio</a>.</p>
+                                        </div>
+
                                         <div>
                                             <label className="block text-xs font-bold text-slate-700 mb-1 uppercase">Topik / Materi Pembahasan</label>
                                             <input 
