@@ -1029,7 +1029,11 @@
                             { name: 'Bpk. Ahmad, S.Kom', subject: 'Informatika', pass: 'guru123' }
                         ];
                         const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'teachers');
-                        for (let t of defaults) { await addDoc(colRef, t); }
+                        try {
+                            for (let t of defaults) { await addDoc(colRef, t); }
+                        } catch (err) {
+                            console.warn("Seeding teachers error:", err);
+                        }
                     } else {
                         window.__isTeacherSeeded = true;
                         setTeachersList(loaded);
@@ -1051,7 +1055,11 @@
                             { subject: 'SKI', classLevel: 'Kelas 8 (VIII)', material: 'Kurikulum Merdeka', level: 'Sedang', q: 'Siapakah khalifah pertama setelah Rasulullah wafat?', options: ['Umar bin Khattab', 'Usman bin Affan', 'Ali bin Abi Thalib', 'Abu Bakar Ash-Shiddiq'], answer: 3 }
                         ];
                         const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'questions');
-                        for (let q of defaultQ) { await addDoc(colRef, q); }
+                        try {
+                            for (let q of defaultQ) { await addDoc(colRef, q); }
+                        } catch (err) {
+                            console.warn("Seeding questions error:", err);
+                        }
                     } else {
                         window.__isQuestionsSeeded = true;
                         setMasterQuestionBank(loaded);
