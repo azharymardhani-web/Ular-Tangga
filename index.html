@@ -486,6 +486,19 @@
                         showToast("Room sudah penuh (Maks 32)", "error");
                         return;
                     }
+
+                    // Check duplicate ID or duplicate name or duplicate avatar
+                    if (rData.players.some(p => p.id === user.uid)) {
+                        setRoomId(rCode);
+                        setUserRole('student');
+                        setCurrentView('lobby');
+                        showToast("Anda sudah terdaftar di room ini!", "info");
+                        return;
+                    }
+                    if (rData.players.some(p => p.name.trim().toLowerCase() === playerName.trim().toLowerCase())) {
+                        showToast("Nama siswa sudah digunakan di room ini. Gunakan nama lengkap/unik!", "error");
+                        return;
+                    }
                     if (rData.players.some(p => p.avatarId === avatarId)) {
                         showToast("Avatar sudah dipilih pemain lain!", "error");
                         return;
@@ -495,7 +508,7 @@
 
                     const newPlayer = {
                         id: user.uid,
-                        name: playerName,
+                        name: playerName.trim(),
                         avatarId: avatarId,
                         position: 0,
                         score: 0,
