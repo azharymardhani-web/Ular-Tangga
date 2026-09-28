@@ -66,9 +66,6 @@
             color: rgba(0,0,0,0.35);
             position: relative;
         }
-        .cell-odd { background-color: #e0f2fe; }
-        .cell-even { background-color: #f0fdf4; }
-        
         .player-token {
             position: absolute;
             width: 80%;
@@ -82,16 +79,13 @@
             transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
             z-index: 10;
         }
-        
         .offset-0 { transform: translate(-20%, -20%); z-index: 15; }
         .offset-1 { transform: translate(20%, -20%); z-index: 14; }
         .offset-2 { transform: translate(-20%, 20%); z-index: 13; }
         .offset-3 { transform: translate(20%, 20%); z-index: 12; }
-        
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: #f1f1f1; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
     </style>
 </head>
 <body>
@@ -302,25 +296,6 @@
             const [manualLevel, setManualLevel] = useState('Sedang');
             const [manualMaterial, setManualMaterial] = useState('Umum');
 
-            // AI Generator States
-            const [aiTopic, setAiTopic] = useState('');
-            const [aiCount, setAiCount] = useState(10);
-            const [aiLevel, setAiLevel] = useState('Sedang');
-            const [isGenerating, setIsGenerating] = useState(false);
-            const [customApiKey, setCustomApiKey] = useState(localStorage.getItem('gemini_api_key') || '');
-
-            useEffect(() => {
-                if (!db || !appId) return;
-                const keyRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'gemini_config');
-                const unsub = onSnapshot(keyRef, (snap) => {
-                    if (snap.exists() && snap.data().apiKey) {
-                        setCustomApiKey(snap.data().apiKey);
-                        localStorage.setItem('gemini_api_key', snap.data().apiKey);
-                    }
-                }, (err) => console.error("Gagal sinkron API Key dari server:", err));
-                return () => unsub();
-            }, [db, appId]);
-
             const subjectQuestions = masterQuestionBank.filter(q => q.subject === assignedSubject);
 
             const downloadCsvTemplate = () => {
@@ -411,78 +386,6 @@
                 }
             };
 
-            const handleGenerateAIQuestions = async () => {
-                if (!aiTopic.trim()) {
-                    showToast("Harap masukkan topik/materi pembahasan terlebih dahulu!", "error");
-                    return;
-                }
-                setIsGenerating(true);
-                showToast(`Menghubungkan ke Gemini AI untuk membuat ${aiCount} soal ${selectedClass}...`, "info");
-
-                const apiKey = customApiKey.trim() || "";
-                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
-
-                const systemPrompt = `Anda adalah seorang guru ahli pembuat soal ujian madrasah tsanawiyah (MTs) di Indonesia. Berdasarkan standar kompetensi Kurikulum Merdeka, buatlah tepat ${aiCount} buah soal Pilihan Ganda (PG) 4 opsi (A, B, C, D) berkualitas tinggi mata pelajaran ${assignedSubject} untuk tingkat ${selectedClass} dengan topik: "${aiTopic}". Tingkat kesulitan: ${aiLevel}.`;
-                
-                const userQuery = `Berikan response dalam format JSON murni berupa array of objects tanpa markdown tambahan, dengan struktur:
-                [
-                  {
-                    "q": "Pertanyaan soal...",
-                    "options": ["Opsi A", "Opsi B", "Opsi C", "Opsi D"],
-                    "answer": 0
-                  }
-                ]
-                Di mana "answer" adalah indeks jawaban benar dari 0 sampai 3 (0 untuk A, 1 untuk B, 2 untuk C, 3 untuk D).`;
-
-                const payload = {
-                    contents: [{ parts: [{ text: userQuery }] }],
-                    systemInstruction: { parts: [{ text: systemPrompt }] },
-                    generationConfig: { responseMimeType: "application/json" }
-                };
-
-                try {
-                    const response = await fetch(apiUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-                    const result = await response.json();
-                    const candidate = result.candidates?.[0];
-                    if (candidate && candidate.content?.parts?.[0]?.text) {
-                        const rawJson = candidate.content.parts[0].text;
-                        const parsed = JSON.parse(rawJson);
-                        if (Array.isArray(parsed) && parsed.length > 0) {
-                            const generatedQuestions = parsed.map((item) => ({
-                                subject: assignedSubject,
-                                classLevel: selectedClass,
-                                material: aiTopic,
-                                level: aiLevel,
-                                q: item.q || "Pertanyaan AI",
-                                options: item.options || ["A", "B", "C", "D"],
-                                answer: Number(item.answer) >= 0 && Number(item.answer) <= 3 ? Number(item.answer) : 0,
-                                createdAt: Date.now()
-                            }));
-
-                            const qCol = collection(db, 'artifacts', appId, 'public', 'data', 'questions');
-                            for(let item of generatedQuestions) {
-                                await addDoc(qCol, item);
-                            }
-                            
-                            setIsGenerating(false);
-                            setAiTopic('');
-                            showToast(`Berhasil menyimpan ${generatedQuestions.length} soal AI ke Database Firebase!`, "success");
-                            setActiveTeacherTab('bank');
-                            return;
-                        }
-                    }
-                    throw new Error("Respon AI tidak valid atau kosong.");
-                } catch (e) {
-                    console.error("AI Generation Error:", e);
-                    setIsGenerating(false);
-                    showToast("Gagal menghasilkan soal dari AI. Periksa koneksi atau coba beberapa saat lagi.", "error");
-                }
-            };
-
             return (
                 <div className="min-h-screen bg-slate-50 p-6">
                     <div className="max-w-6xl mx-auto">
@@ -506,12 +409,6 @@
                                 className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTeacherTab === 'bank' ? 'bg-brand-navy text-white shadow-md' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
                             >
                                 📚 Kelola Bank Soal ({subjectQuestions.length})
-                            </button>
-                            <button 
-                                onClick={() => setActiveTeacherTab('ai_generator')}
-                                className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all whitespace-nowrap flex items-center gap-2 ${activeTeacherTab === 'ai_generator' ? 'bg-purple-600 text-white shadow-md' : 'bg-purple-50 text-purple-700 hover:bg-purple-100'}`}
-                            >
-                                ✨ Generate Soal AI
                             </button>
                         </div>
 
@@ -560,13 +457,6 @@
                                 <Card className="space-y-4">
                                     <h2 className="text-xl font-bold flex items-center gap-2"><span>⚡</span> Aksi Cepat</h2>
                                     <div className="space-y-3">
-                                        <div onClick={() => setActiveTeacherTab('ai_generator')} className="p-4 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 font-medium cursor-pointer transition-colors flex items-center gap-3">
-                                            <span className="text-2xl">✨</span>
-                                            <div>
-                                                <div className="font-bold">Generate Soal AI</div>
-                                                <div className="text-xs opacity-75">Buat soal otomatis per jenjang</div>
-                                            </div>
-                                        </div>
                                         <div onClick={() => setActiveTeacherTab('bank')} className="p-4 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 font-medium cursor-pointer transition-colors flex items-center gap-3">
                                             <span className="text-2xl">📋</span>
                                             <div>
@@ -589,101 +479,6 @@
                             </div>
                         )}
 
-                        {activeTeacherTab === 'ai_generator' && (
-                            <div className="max-w-2xl mx-auto">
-                                <Card className="space-y-6">
-                                    <div className="border-b pb-4 flex justify-between items-center">
-                                        <div>
-                                            <h2 className="text-2xl font-bold text-brand-navy flex items-center gap-2"><span>✨</span> Generator Soal AI</h2>
-                                            <p className="text-slate-500 text-sm">Otomatis buat soal Pilihan Ganda untuk <b>{selectedClass}</b> menggunakan Gemini</p>
-                                        </div>
-                                        <div className="text-right">
-                                            <label className="text-xs font-bold text-slate-500 block mb-1">Target Kelas</label>
-                                            <select value={selectedClass} onChange={e => setSelectedClass(e.target.value)} className="p-2 border rounded-xl font-bold text-xs bg-white">
-                                                <option value="Kelas 7 (VII)">Kelas 7</option>
-                                                <option value="Kelas 8 (VIII)">Kelas 8</option>
-                                                <option value="Kelas 9 (IX)">Kelas 9</option>
-                                            </select>
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-4">
-                                        <div className="bg-purple-50 p-4 rounded-xl border border-purple-100 mb-4">
-                                            <div className="flex justify-between items-center mb-1">
-                                                <label className="block text-xs font-bold text-purple-800 uppercase">Gemini API Key (Tersimpan di Cloud)</label>
-                                                {customApiKey && <span className="text-[10px] bg-green-500 text-white px-2 py-0.5 rounded-full font-bold">✅ Tersinkronisasi Global</span>}
-                                            </div>
-                                            <input 
-                                                type="password" 
-                                                value={customApiKey} 
-                                                onChange={e => {
-                                                    setCustomApiKey(e.target.value);
-                                                    localStorage.setItem('gemini_api_key', e.target.value);
-                                                }} 
-                                                onBlur={async (e) => {
-                                                    const newKey = e.target.value.trim();
-                                                    if(newKey && db) {
-                                                        try {
-                                                            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'gemini_config'), { 
-                                                                apiKey: newKey,
-                                                                updatedAt: Date.now()
-                                                            }, { merge: true });
-                                                            showToast("✅ API Key berhasil diamankan permanen ke Server Firebase!", "success");
-                                                        } catch(err) {
-                                                            console.error("Gagal save API key", err);
-                                                        }
-                                                    }
-                                                }}
-                                                placeholder="Paste API Key AIzaSy... (Klik di luar kotak untuk menyimpan otomatis)" 
-                                                className="w-full p-2.5 border border-purple-200 rounded-lg text-sm outline-none bg-white focus:border-purple-600 transition-colors" 
-                                            />
-                                            <p className="text-[10px] text-purple-600 mt-1 font-medium">Semua akun Guru akan menggunakan API Key ini secara bersama-sama. Dapatkan key di <a href="https://aistudio.google.com/app/apikey" target="_blank" className="underline font-bold">Google AI Studio</a>.</p>
-                                        </div>
-
-                                        <div>
-                                            <label className="block text-xs font-bold text-slate-700 mb-1 uppercase">Topik / Materi Pembahasan</label>
-                                            <input 
-                                                type="text" 
-                                                value={aiTopic} 
-                                                onChange={e => setAiTopic(e.target.value)} 
-                                                placeholder="Contoh: Aljabar, Sistem Pencernaan, Teks Naratif..." 
-                                                className="w-full p-3 border rounded-xl text-sm outline-none bg-white focus:border-purple-600" 
-                                            />
-                                        </div>
-
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                            <div>
-                                                <label className="block text-xs font-bold text-slate-700 mb-1 uppercase">Jumlah Soal</label>
-                                                <select value={aiCount} onChange={e => setAiCount(Number(e.target.value))} className="w-full p-3 border rounded-xl text-sm outline-none bg-white">
-                                                    <option value={10}>10 Soal</option>
-                                                    <option value={20}>20 Soal</option>
-                                                    <option value={30}>30 Soal</option>
-                                                    <option value={40}>40 Soal</option>
-                                                    <option value={50}>50 Soal</option>
-                                                </select>
-                                            </div>
-                                            <div>
-                                                <label className="block text-xs font-bold text-slate-700 mb-1 uppercase">Level Kesulitan</label>
-                                                <select value={aiLevel} onChange={e => setAiLevel(e.target.value)} className="w-full p-3 border rounded-xl text-sm outline-none bg-white">
-                                                    <option value="Mudah">Mudah</option>
-                                                    <option value="Sedang">Sedang</option>
-                                                    <option value="Sulit">Sulit</option>
-                                                </select>
-                                            </div>
-                                        </div>
-
-                                        <Button 
-                                            onClick={handleGenerateAIQuestions} 
-                                            disabled={isGenerating} 
-                                            className="w-full py-4 bg-purple-600 hover:bg-purple-700 text-lg shadow-xl"
-                                        >
-                                            {isGenerating ? '⏳ Sedang Membuat Soal AI...' : `✨ Generate ${aiCount} Soal untuk ${selectedClass}`}
-                                        </Button>
-                                    </div>
-                                </Card>
-                            </div>
-                        )}
-
                         {activeTeacherTab === 'bank' && (
                             <div className="space-y-6">
                                 <Card className="space-y-4">
@@ -698,7 +493,6 @@
                                                 📁 Import CSV ({selectedClass})
                                                 <input type="file" accept=".csv" onChange={handleFileUpload} className="hidden" />
                                             </label>
-                                            <Button onClick={() => setActiveTeacherTab('ai_generator')} className="bg-purple-600 hover:bg-purple-700 text-sm py-2">✨ AI Generator</Button>
                                             <Button onClick={() => {
                                                 const modal = document.getElementById('manual-soal-modal');
                                                 if(modal) modal.classList.remove('hidden');
@@ -771,7 +565,7 @@
                                                 </div>
                                             ))}
                                         {subjectQuestions.filter(q => bankClassFilter === 'Semua Kelas' || q.classLevel === bankClassFilter).length === 0 && (
-                                            <div className="text-center py-16 text-slate-400 font-medium">Belum ada soal pada kategori <b className="text-brand-navy">{bankClassFilter}</b>. Silakan gunakan <b>✨ Generate Soal AI</b> atau <b>Tambah Soal</b>.</div>
+                                            <div className="text-center py-16 text-slate-400 font-medium">Belum ada soal pada kategori <b className="text-brand-navy">{bankClassFilter}</b>. Silakan gunakan <b>Tambah Soal</b> atau <b>Import CSV</b>.</div>
                                         )}
                                     </div>
                                 </Card>
@@ -1137,7 +931,7 @@
                     let activeQuestions = filteredQuestions.length > 0 ? filteredQuestions : masterQuestionBank.filter(q => q.subject === teacherSubject);
                     if(activeQuestions.length === 0) activeQuestions = masterQuestionBank;
                     
-                    activeQuestions = [...activeQuestions].sort(() => 0.5 - Math.random()).slice(0, 50);
+                    activeQuestions = [...activeQuestions].sort(() => 0.5 - Math.random());
 
                     const chosenBoard = BOARD_LAYOUTS[selectedBoardKey] || BOARD_LAYOUTS.classic;
 
@@ -1284,8 +1078,9 @@
                     let updatedPlayers = [...snap.data().players];
                     const pIndex = updatedPlayers.findIndex(p => p.id === user.uid);
                     
-                    const qIndex = (updatedPlayers[pIndex].correct + updatedPlayers[pIndex].wrong) % snap.data().questions.length;
-                    const q = snap.data().questions[qIndex] || snap.data().questions[0];
+                    const questionsList = snap.data().questions || [];
+                    const qIndex = questionsList.length > 0 ? (updatedPlayers[pIndex].correct + updatedPlayers[pIndex].wrong) % questionsList.length : 0;
+                    const q = questionsList[qIndex] || { answer: 0 };
                     const isCorrect = answerIndex === q.answer;
                     
                     if (isCorrect) {
@@ -1301,7 +1096,7 @@
                         playSound('wrong');
                         showToast("Jawaban Salah! Coba soal berikutnya...", "error");
                         updatedPlayers[pIndex].wrong += 1;
-                        let newPos = updatedPlayers[pIndex].position - snap.data().config.wrongPenalty;
+                        let newPos = updatedPlayers[pIndex].position - (snap.data().config?.wrongPenalty || 0);
                         if(newPos < 1) newPos = 1;
                         updatedPlayers[pIndex].position = newPos;
                         await updateDoc(roomRef, { players: updatedPlayers });
@@ -1353,12 +1148,13 @@
                             let hitEvent = false;
                             let scoreModifier = 0;
 
-                            if (snap3.data().board.snakes[finalPos]) {
-                                finalPos = snap3.data().board.snakes[finalPos];
+                            const boardDef = snap3.data().board || {};
+                            if (boardDef.snakes && boardDef.snakes[finalPos]) {
+                                finalPos = boardDef.snakes[finalPos];
                                 hitEvent = 'snake';
                                 scoreModifier = -30;
-                            } else if (snap3.data().board.ladders[finalPos]) {
-                                finalPos = snap3.data().board.ladders[finalPos];
+                            } else if (boardDef.ladders && boardDef.ladders[finalPos]) {
+                                finalPos = boardDef.ladders[finalPos];
                                 hitEvent = 'ladder';
                                 scoreModifier = 50;
                             }
@@ -1890,8 +1686,10 @@
                 if (!roomData) return null;
                 const isTeacher = userRole === 'teacher';
                 const myPlayer = isTeacher ? null : roomData.players.find(p => p.id === user?.uid);
-                const qIndex = myPlayer ? (myPlayer.correct + myPlayer.wrong) % roomData.questions.length : 0;
-                const currentQuestion = roomData.questions[qIndex] || roomData.questions[0]; 
+                
+                const questionsList = roomData.questions || [];
+                const qIndex = myPlayer && questionsList.length > 0 ? (myPlayer.correct + myPlayer.wrong) % questionsList.length : 0;
+                const currentQuestion = questionsList[qIndex] || questionsList[0] || { q: 'Pertanyaan tidak tersedia', options: ['A','B','C','D'], answer: 0 }; 
 
                 return (
                     <div className="min-h-screen bg-slate-100 flex flex-col md:flex-row">
@@ -1953,7 +1751,7 @@
                                     {!isTeacher && (
                                         <Button 
                                             onClick={() => setHideQuestion(false)} 
-                                            className="bg-brand-gold hover:bg-yellow-500 text-white shadow-lg py-2 text-sm font-bold flex items-center gap-2 animate-pulse"
+                                            className="bg-brand-gold hover:bg-yellow-500 text-white shadow-lg py-2.5 px-5 text-sm font-bold flex items-center gap-2 animate-pulse"
                                         >
                                             📖 Munculkan / Jawab Soal
                                         </Button>
@@ -1982,7 +1780,7 @@
                                         </div>
                                         <h3 className="text-xl font-bold text-brand-navy mb-6">{currentQuestion.q}</h3>
                                         <div className="grid grid-cols-1 gap-3">
-                                            {currentQuestion.options.map((opt, idx) => (
+                                            {(currentQuestion.options || []).map((opt, idx) => (
                                                 <button 
                                                     key={idx}
                                                     disabled={isProcessing}
