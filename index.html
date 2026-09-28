@@ -1066,22 +1066,7 @@
                 const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
                 const unsubscribe = onSnapshot(roomRef, (snapshot) => {
                     if (snapshot.exists()) {
-                        const rData = snapshot.data();
-                        setRoomData(rData);
-                        
-                        // Cek jika siswa sudah tidak ada di room (keluar sendiri atau dikeluarkan guru)
-                        if (userRole === 'student' && rData.status !== 'finished') {
-                            const isStillInRoom = rData.players.some(p => p.id === user.uid);
-                            if (!isStillInRoom) {
-                                showToast("Anda telah keluar atau dikeluarkan dari ruangan.", "error");
-                                setRoomId(null);
-                                setRoomData(null);
-                                setPlayerData(null);
-                                setCurrentView('landing');
-                                localStorage.removeItem('mt14_roomId');
-                                localStorage.removeItem('mt14_role');
-                            }
-                        }
+                        setRoomData(snapshot.data());
                     } else {
                         showToast("Room tidak ditemukan atau telah ditutup", "error");
                         handleLeaveRoom();
@@ -1090,7 +1075,7 @@
                     console.error("Firestore snapshot error:", error);
                 });
                 return () => unsubscribe();
-            }, [user, roomId, userRole]);
+            }, [user, roomId]);
 
             // Auto-fetch Admin Data
             useEffect(() => {
@@ -1180,51 +1165,36 @@
                         return;
                     }
 
-                    // Menambahkan pemain baru ke dalam room
                     const newPlayer = {
                         id: user.uid,
                         name: playerName,
                         avatarId: avatarId,
-                        position: 0, // Posisi awal sebelum game dimulai
+                        position: 0, 
                         score: 0,
                         correct: 0,
                         wrong: 0,
-                        currentState: 'waiting'
+                        currentState: 'answering',
+                        currentDice: null,
+                        status: 'online'
                     };
-                    
+
                     const updatedPlayers = [...rData.players, newPlayer];
                     await updateDoc(roomRef, { players: updatedPlayers });
-
+                    
+                    setPlayerData(newPlayer);
                     setRoomId(rCode);
                     setUserRole('student');
-                    setPlayerData(newPlayer);
                     setCurrentView('lobby');
                     
-                    // Simpan sesi login lokal agar tidak terlogout jika terre-fresh
+                    // Simpan sesi Siswa ke memori perangkat agar tahan refresh
                     localStorage.setItem('mt14_roomId', rCode);
                     localStorage.setItem('mt14_role', 'student');
-                    showToast("Berhasil bergabung ke ruangan!", "success");
-
                 } catch (e) {
-                    showToast("Terjadi kesalahan saat bergabung: " + e.message, "error");
+                    showToast("Gagal bergabung ke room", "error");
                 }
             };
 
-            const handleLeaveRoom = async () => {
-                // Jika yang keluar adalah siswa, hapus data mereka dari Firebase Room
-                if (userRole === 'student' && roomId && user) {
-                    try {
-                        const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
-                        const snap = await getDoc(roomRef);
-                        if (snap.exists()) {
-                            const updatedPlayers = snap.data().players.filter(p => p.id !== user.uid);
-                            await updateDoc(roomRef, { players: updatedPlayers });
-                        }
-                    } catch (e) {
-                        console.error("Gagal menghapus data siswa saat keluar", e);
-                    }
-                }
-                
+            const handleLeaveRoom = () => {
                 setRoomId(null);
                 setRoomData(null);
                 setPlayerData(null);
@@ -1233,21 +1203,6 @@
                 // Bersihkan memori sesi setelah sengaja keluar
                 localStorage.removeItem('mt14_roomId');
                 localStorage.removeItem('mt14_role');
-            };
-
-            const kickPlayer = async (playerId) => {
-                if (userRole !== 'teacher' || !roomId) return;
-                try {
-                    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
-                    const snap = await getDoc(roomRef);
-                    if (snap.exists()) {
-                        const updatedPlayers = snap.data().players.filter(p => p.id !== playerId);
-                        await updateDoc(roomRef, { players: updatedPlayers });
-                        showToast("Siswa berhasil dikeluarkan dari ruangan.", "info");
-                    }
-                } catch (e) {
-                    showToast("Gagal mengeluarkan siswa", "error");
-                }
             };
 
             const startGame = async () => {
@@ -1604,21 +1559,12 @@
                                     {roomData.players.map(p => {
                                         const av = AVATARS.find(a => a.id === p.avatarId);
                                         return (
-                                            <div key={p.id} className="p-3 bg-white border rounded-xl flex items-center gap-3 shadow-sm relative">
+                                            <div key={p.id} className="p-3 bg-white border rounded-xl flex items-center gap-3 shadow-sm">
                                                 <div className={`w-10 h-10 rounded-full ${av?.bg} flex items-center justify-center text-xl`}>{av?.icon}</div>
-                                                <div className="min-w-0 pr-8">
+                                                <div className="min-w-0">
                                                     <div className="font-bold text-brand-navy truncate text-sm">{p.name}</div>
                                                     <div className="text-[10px] text-green-600 font-bold">Siap Bermain</div>
                                                 </div>
-                                                {isHost && (
-                                                    <button 
-                                                        onClick={() => kickPlayer(p.id)}
-                                                        className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center bg-red-100 text-red-600 rounded-full transition-colors hover:bg-red-500 hover:text-white text-xs font-bold"
-                                                        title="Keluarkan Siswa"
-                                                    >
-                                                        ✕
-                                                    </button>
-                                                )}
                                             </div>
                                         );
                                     })}
@@ -1913,15 +1859,6 @@
                                                     <span className="text-brand-gold font-bold">{p.score} pts</span>
                                                 </div>
                                             </div>
-                                            {isTeacher && (
-                                                <button 
-                                                    onClick={() => kickPlayer(p.id)}
-                                                    className="w-8 h-8 flex items-center justify-center bg-red-50 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-colors flex-shrink-0 text-xs font-bold"
-                                                    title="Keluarkan Siswa"
-                                                >
-                                                    ✕
-                                                </button>
-                                            )}
                                         </div>
                                     )
                                 })}
