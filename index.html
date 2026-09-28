@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MTsN 14 Jakarta - Digital Snake & Ladder</title>
     
+    <!-- React & Tailwind CDN -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -415,16 +416,6 @@
                     if (snapshot.exists()) {
                         const rData = snapshot.data();
                         setRoomData(rData);
-                        if (userRole === 'student' && rData.status !== 'finished') {
-                            const isStillInRoom = rData.players.some(p => p.id === user.uid);
-                            if (!isStillInRoom) {
-                                showToast("Anda telah keluar atau dikeluarkan dari ruangan.", "error");
-                                setRoomId(null);
-                                setRoomData(null);
-                                setPlayerData(null);
-                                setCurrentView('landing');
-                            }
-                        }
                     } else {
                         showToast("Room tidak ditemukan atau telah ditutup", "error");
                     }
@@ -432,7 +423,7 @@
                     console.error("Firestore snapshot error:", error);
                 });
                 return () => unsubscribe();
-            }, [user, roomId, userRole]);
+            }, [user, roomId]);
 
             const createRoom = async () => {
                 if (!user) {
@@ -584,6 +575,7 @@
                     const snap = await getDoc(roomRef);
                     let updatedPlayers = [...snap.data().players];
                     const pIndex = updatedPlayers.findIndex(p => p.id === user.uid);
+                    if (pIndex === -1) { setIsProcessing(false); return; }
                     
                     const pList = updatedPlayers[pIndex].personalQuestions || snap.data().questions;
                     const qIndex = (updatedPlayers[pIndex].correct + updatedPlayers[pIndex].wrong) % pList.length;
@@ -631,6 +623,7 @@
                     const snap = await getDoc(roomRef);
                     let updatedPlayers = [...snap.data().players];
                     const pIndex = updatedPlayers.findIndex(p => p.id === user.uid);
+                    if (pIndex === -1) { setIsProcessing(false); return; }
 
                     updatedPlayers[pIndex].currentDice = diceValue;
                     updatedPlayers[pIndex].currentState = 'moving';
@@ -640,6 +633,7 @@
                         const snap2 = await getDoc(roomRef);
                         let up2 = [...snap2.data().players];
                         const pIdx2 = up2.findIndex(p => p.id === user.uid);
+                        if (pIdx2 === -1) { setIsProcessing(false); return; }
 
                         let newPos = up2[pIdx2].position + diceValue;
                         if (newPos > 100) newPos = 100 - (newPos - 100);
@@ -650,6 +644,7 @@
                             const snap3 = await getDoc(roomRef);
                             let up3 = [...snap3.data().players];
                             const pIdx3 = up3.findIndex(p => p.id === user.uid);
+                            if (pIdx3 === -1) { setIsProcessing(false); return; }
 
                             let finalPos = up3[pIdx3].position;
                             let hitEvent = false;
@@ -1604,6 +1599,10 @@
                                         </div>
                                     )
                                 })}
+                            </div>
+
+                            <div className="p-3 border-t bg-white">
+                                <Button onClick={handleLeaveRoom} variant="outline" className="w-full text-xs py-2">🚪 Keluar Room</Button>
                             </div>
                         </div>
 
