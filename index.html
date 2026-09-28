@@ -66,6 +66,9 @@
             color: rgba(0,0,0,0.35);
             position: relative;
         }
+        .cell-odd { background-color: #e0f2fe; }
+        .cell-even { background-color: #f0fdf4; }
+        
         .player-token {
             position: absolute;
             width: 80%;
@@ -79,10 +82,16 @@
             transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
             z-index: 10;
         }
+        
         .offset-0 { transform: translate(-20%, -20%); z-index: 15; }
         .offset-1 { transform: translate(20%, -20%); z-index: 14; }
         .offset-2 { transform: translate(-20%, 20%); z-index: 13; }
         .offset-3 { transform: translate(20%, 20%); z-index: 12; }
+        
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
     </style>
 </head>
 <body>
@@ -90,7 +99,7 @@
         <div style="display: flex; justify-content: center; align-items: center; height: 100vh; font-family: Inter, sans-serif; background: #0F172A; color: white;">
             <div style="text-align: center;">
                 <h2 style="font-size: 24px; margin-bottom: 8px;">MTsN 14 JAKARTA</h2>
-                <p style="color: #F59E0B; font-size: 14px;">Memuat Sistem Digital Snake & Ladder...</p>
+                <p style="color: #F59E0B; font-size: 14px;">Memuat Aplikasi Digital Snake & Ladder...</p>
             </div>
         </div>
     </div>
@@ -842,6 +851,33 @@
                     </div>
                 </div>
             );
+        }
+
+        class ErrorBoundary extends React.Component {
+            constructor(props) {
+                super(props);
+                this.state = { hasError: false, error: null };
+            }
+            static getDerivedStateFromError(error) {
+                return { hasError: true, error };
+            }
+            componentDidCatch(error, errorInfo) {
+                console.error("Uncaught app error:", error, errorInfo);
+            }
+            render() {
+                if (this.state.hasError) {
+                    return (
+                        <div style={{ padding: '40px', textAlign: 'center', fontFamily: 'Inter, sans-serif', background: '#0F172A', color: 'white', minHeight: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
+                            <div style={{ background: '#1E293B', padding: '30px', borderRadius: '16px', maxWidth: '500px', width: '100%', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}>
+                                <h2 style={{ fontSize: '22px', marginBottom: '12px', color: '#F59E0B' }}>Terjadi Kesalahan Sistem</h2>
+                                <p style={{ fontSize: '14px', color: '#94A3B8', marginBottom: '20px' }}>Aplikasi mengalami kendala tak terduga saat memuat state. Silakan muat ulang halaman.</p>
+                                <button onClick={() => { localStorage.clear(); window.location.reload(); }} style={{ background: '#0D9488', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Muat Ulang Aplikasi</button>
+                            </div>
+                        </div>
+                    );
+                }
+                return this.props.children;
+            }
         }
 
         function ReactApp() {
@@ -2062,7 +2098,11 @@
             const rootElement = document.getElementById('root');
             if (rootElement) {
                 const root = ReactDOM.createRoot(rootElement);
-                root.render(<ReactApp />);
+                root.render(
+                    <ErrorBoundary>
+                        <ReactApp />
+                    </ErrorBoundary>
+                );
             }
         } catch (err) {
             console.error("React mounting error:", err);
