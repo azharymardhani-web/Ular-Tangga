@@ -900,8 +900,6 @@
             const [joinCode, setJoinCode] = useState('');
             const [joinName, setJoinName] = useState('');
             const [selectedAvatar, setSelectedAvatar] = useState(null);
-            
-            const [hideQuestion, setHideQuestion] = useState(false);
 
             const boardCells = useMemo(() => {
                 const grid = [];
@@ -1241,7 +1239,6 @@
                         updatedPlayers[pIndex].currentState = 'rolling';
                         await updateDoc(roomRef, { players: updatedPlayers });
                         setIsProcessing(false);
-                        setHideQuestion(false);
                     } else {
                         playSound('wrong');
                         showToast("Jawaban Salah! Coba soal berikutnya...", "error");
@@ -1250,10 +1247,7 @@
                         if(newPos < 1) newPos = 1;
                         updatedPlayers[pIndex].position = newPos;
                         await updateDoc(roomRef, { players: updatedPlayers });
-                        setTimeout(() => {
-                            setIsProcessing(false);
-                            setHideQuestion(false);
-                        }, 2000);
+                        setTimeout(() => setIsProcessing(false), 2000);
                     }
                 } catch (e) {
                     setIsProcessing(false);
@@ -1321,7 +1315,6 @@
                                 showToast("SELAMAT KAMU MENCAPAI FINISH!", "success");
                             } else {
                                 up3[pIdx3].currentState = 'answering';
-                                setHideQuestion(false);
                             }
                             
                             await updateDoc(roomRef, { players: up3 });
@@ -1878,32 +1871,19 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-3">
-                                    {!isTeacher && myPlayer?.currentState === 'answering' && hideQuestion && (
-                                        <Button onClick={() => setHideQuestion(false)} className="animate-pulse bg-brand-gold hover:bg-yellow-500 text-white border-none shadow-lg py-2 text-sm">
-                                            📝 Tampilkan Soal
-                                        </Button>
-                                    )}
-                                    {isTeacher && (
-                                        <Button variant="danger" className="py-2 text-sm" onClick={() => updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId), { status: 'finished' })}>Selesaikan Game</Button>
-                                    )}
-                                </div>
+                                {isTeacher && (
+                                    <Button variant="danger" className="py-2 text-sm" onClick={() => updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId), { status: 'finished' })}>Selesaikan Game</Button>
+                                )}
                             </div>
 
                             <div className="flex-1 flex items-center justify-center mb-6">
                                 {GameBoard({ roomData })}
                             </div>
 
-                            {!isTeacher && myPlayer?.currentState === 'answering' && !hideQuestion && (
+                            {!isTeacher && myPlayer?.currentState === 'answering' && (
                                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand-navy bg-opacity-80 p-4 backdrop-blur-sm">
-                                    <div className="bg-white rounded-3xl p-8 max-w-xl w-full shadow-2xl relative">
-                                        <button 
-                                            onClick={() => setHideQuestion(true)}
-                                            className="absolute top-4 right-4 bg-slate-100 text-slate-600 hover:bg-slate-200 px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-sm flex items-center gap-2"
-                                        >
-                                            👁️ Lihat Papan
-                                        </button>
-                                        <div className="flex justify-between items-center mb-4 pr-32">
+                                    <div className="bg-white rounded-3xl p-8 max-w-xl w-full shadow-2xl">
+                                        <div className="flex justify-between items-center mb-4">
                                             <span className="bg-brand-gold text-white text-xs font-bold px-3 py-1 rounded-full">SOAL PG MANDIRI #{qIndex + 1}</span>
                                         </div>
                                         <h3 className="text-xl font-bold text-brand-navy mb-6">{currentQuestion.q}</h3>
