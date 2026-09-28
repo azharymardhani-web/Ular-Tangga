@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MTsN 14 Jakarta - Digital Snake & Ladder</title>
     
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -88,9 +88,6 @@
         .offset-2 { transform: translate(-20%, 20%); z-index: 13; }
         .offset-3 { transform: translate(20%, 20%); z-index: 12; }
         
-        .snake-line { stroke: #ef4444; stroke-width: 4; stroke-dasharray: 6,4; fill: none; opacity: 0.85; }
-        .ladder-line { stroke: #10b981; stroke-width: 5; opacity: 0.85; }
-        
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: #f1f1f1; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
@@ -98,7 +95,14 @@
     </style>
 </head>
 <body>
-    <div id="root"></div>
+    <div id="root">
+        <div style="display: flex; justify-content: center; align-items: center; height: 100vh; font-family: Inter, sans-serif; background: #0F172A; color: white;">
+            <div style="text-align: center;">
+                <h2 style="font-size: 24px; margin-bottom: 8px;">MTsN 14 JAKARTA</h2>
+                <p style="color: #F59E0B; font-size: 14px;">Memuat Sistem Digital Snake & Ladder...</p>
+            </div>
+        </div>
+    </div>
 
     <script type="text/babel" data-type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
@@ -168,9 +172,74 @@
 
         const BOARD_LAYOUTS = {
             classic: {
-                name: "Papan Klasik Sesuai Referensi Gambar",
-                snakes: { 99: 79, 93: 88, 89: 72, 74: 55, 62: 41, 54: 35, 32: 11, 5: 5 },
+                name: "1. Klasik Tradisional",
+                bgTheme: "bg-white",
+                cellColors: ['bg-rose-200', 'bg-amber-200', 'bg-emerald-200', 'bg-sky-200', 'bg-violet-200'],
+                snakes: { 99: 79, 93: 88, 89: 72, 74: 55, 62: 41, 54: 35, 32: 11, 16: 4 },
                 ladders: { 3: 18, 9: 29, 21: 40, 26: 76, 52: 68, 56: 95, 80: 99 }
+            },
+            islamic: {
+                name: "2. Islamic Heritage (Nuansa Madinah)",
+                bgTheme: "bg-emerald-50",
+                cellColors: ['bg-emerald-100', 'bg-amber-100', 'bg-teal-100', 'bg-yellow-50', 'bg-lime-100'],
+                snakes: { 98: 80, 91: 73, 85: 66, 68: 45, 59: 38, 47: 22, 28: 10 },
+                ladders: { 4: 25, 13: 42, 33: 54, 50: 77, 61: 89, 70: 96 }
+            },
+            space: {
+                name: "3. Futuristic Galaxy (Eksplorasi Antariksa)",
+                bgTheme: "bg-slate-900 text-white",
+                cellColors: ['bg-slate-800', 'bg-indigo-900', 'bg-purple-950', 'bg-blue-950', 'bg-zinc-800'],
+                snakes: { 97: 76, 92: 65, 84: 52, 75: 44, 63: 31, 48: 15, 30: 5 },
+                ladders: { 2: 23, 12: 34, 27: 58, 40: 72, 55: 86, 78: 98 }
+            },
+            ocean: {
+                name: "4. Deep Ocean (Petualangan Bawah Laut)",
+                bgTheme: "bg-cyan-950 text-white",
+                cellColors: ['bg-cyan-900', 'bg-blue-900', 'bg-teal-900', 'bg-sky-900', 'bg-indigo-950'],
+                snakes: { 99: 81, 90: 67, 82: 58, 71: 49, 60: 36, 42: 20, 25: 8 },
+                ladders: { 5: 22, 18: 39, 32: 56, 48: 75, 64: 88, 83: 97 }
+            },
+            jungle: {
+                name: "5. Safari Rimba Hijau (Wild Amazon)",
+                bgTheme: "bg-lime-950",
+                cellColors: ['bg-lime-200', 'bg-emerald-200', 'bg-green-300', 'bg-teal-200', 'bg-amber-100'],
+                snakes: { 95: 78, 88: 69, 79: 57, 67: 43, 53: 30, 39: 14, 20: 3 },
+                ladders: { 7: 28, 19: 45, 36: 62, 51: 74, 70: 92, 81: 99 }
+            },
+            cyberpunk: {
+                name: "6. Cyber Tech City (Informatika & AI)",
+                bgTheme: "bg-zinc-950 text-cyan-400",
+                cellColors: ['bg-zinc-900', 'bg-slate-900', 'bg-purple-950', 'bg-cyan-950', 'bg-neutral-900'],
+                snakes: { 96: 77, 89: 70, 80: 53, 72: 41, 58: 33, 45: 19, 23: 7 },
+                ladders: { 6: 24, 15: 38, 31: 59, 49: 71, 65: 87, 82: 98 }
+            },
+            volcano: {
+                name: "7. Volcano Inferno (Tantangan Lahar Panas)",
+                bgTheme: "bg-red-950",
+                cellColors: ['bg-orange-200', 'bg-red-200', 'bg-amber-300', 'bg-rose-200', 'bg-yellow-100'],
+                snakes: { 98: 75, 91: 64, 83: 50, 74: 40, 61: 29, 46: 18, 21: 6 },
+                ladders: { 3: 20, 14: 35, 28: 57, 44: 68, 62: 85, 79: 99 }
+            },
+            candy: {
+                name: "8. Sweet Candy Land (Negeri Manisan)",
+                bgTheme: "bg-pink-100",
+                cellColors: ['bg-pink-200', 'bg-purple-200', 'bg-rose-200', 'bg-fuchsia-200', 'bg-sky-200'],
+                snakes: { 99: 82, 92: 71, 85: 60, 73: 48, 59: 34, 43: 17, 26: 9 },
+                ladders: { 8: 26, 16: 41, 35: 63, 52: 76, 66: 90, 80: 97 }
+            },
+            desert: {
+                name: "9. Desert Oasis (Padang Pasir Eksotis)",
+                bgTheme: "bg-amber-50",
+                cellColors: ['bg-amber-200', 'bg-orange-200', 'bg-yellow-200', 'bg-stone-200', 'bg-amber-100'],
+                snakes: { 97: 74, 90: 68, 81: 55, 70: 42, 56: 32, 41: 16, 24: 5 },
+                ladders: { 4: 21, 17: 37, 29: 61, 48: 73, 67: 89, 84: 98 }
+            },
+            fantasy: {
+                name: "10. Enchanted Forest (Hutan Peri Ajaib)",
+                bgTheme: "bg-violet-950 text-white",
+                cellColors: ['bg-violet-900', 'bg-fuchsia-900', 'bg-purple-900', 'bg-indigo-900', 'bg-slate-900'],
+                snakes: { 98: 78, 93: 69, 86: 59, 75: 47, 62: 35, 50: 20, 22: 8 },
+                ladders: { 3: 24, 15: 43, 30: 58, 46: 72, 64: 88, 81: 99 }
             }
         };
 
@@ -213,9 +282,11 @@
             setCurrentView, 
             showToast,
             db,
-            appId
+            appId,
+            selectedBoardKey,
+            setSelectedBoardKey
         }) {
-            const { useState } = React;
+            const { useState, useEffect } = React;
             const assignedSubject = currentTeacher?.subject || "Informatika";
             
             const [activeTeacherTab, setActiveTeacherTab] = useState('create'); 
@@ -237,6 +308,18 @@
             const [aiLevel, setAiLevel] = useState('Sedang');
             const [isGenerating, setIsGenerating] = useState(false);
             const [customApiKey, setCustomApiKey] = useState(localStorage.getItem('gemini_api_key') || '');
+
+            useEffect(() => {
+                if (!db || !appId) return;
+                const keyRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'gemini_config');
+                const unsub = onSnapshot(keyRef, (snap) => {
+                    if (snap.exists() && snap.data().apiKey) {
+                        setCustomApiKey(snap.data().apiKey);
+                        localStorage.setItem('gemini_api_key', snap.data().apiKey);
+                    }
+                }, (err) => console.error("Gagal sinkron API Key dari server:", err));
+                return () => unsub();
+            }, [db, appId]);
 
             const subjectQuestions = masterQuestionBank.filter(q => q.subject === assignedSubject);
 
@@ -411,7 +494,6 @@
                             <Button variant="outline" onClick={() => setCurrentView('landing')}>Keluar</Button>
                         </div>
 
-                        {/* Navigation Tabs */}
                         <div className="flex gap-2 mb-6 border-b pb-4 overflow-x-auto">
                             <button 
                                 onClick={() => setActiveTeacherTab('create')}
@@ -433,7 +515,6 @@
                             </button>
                         </div>
 
-                        {/* TAB 1: CREATE ROOM */}
                         {activeTeacherTab === 'create' && (
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 <Card className="md:col-span-2 space-y-6">
@@ -453,6 +534,19 @@
                                                     <option value="Kelas 9 (IX)">Kelas 9 (IX)</option>
                                                 </select>
                                             </div>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-slate-500 mb-1 font-medium">Pilih Desain / Tema Papan Ular Tangga (10 Pilihan)</label>
+                                            <select 
+                                                value={selectedBoardKey} 
+                                                onChange={e => setSelectedBoardKey(e.target.value)} 
+                                                className="w-full p-3 border rounded-xl bg-white font-bold text-brand-navy outline-none"
+                                            >
+                                                {Object.entries(BOARD_LAYOUTS).map(([key, b]) => (
+                                                    <option key={key} value={key}>{b.name}</option>
+                                                ))}
+                                            </select>
                                         </div>
 
                                         <div className="flex items-center justify-between pt-2 text-sm font-bold text-brand-navy">
@@ -495,7 +589,6 @@
                             </div>
                         )}
 
-                        {/* TAB 2: AI GENERATOR */}
                         {activeTeacherTab === 'ai_generator' && (
                             <div className="max-w-2xl mx-auto">
                                 <Card className="space-y-6">
@@ -516,7 +609,10 @@
 
                                     <div className="space-y-4">
                                         <div className="bg-purple-50 p-4 rounded-xl border border-purple-100 mb-4">
-                                            <label className="block text-xs font-bold text-purple-800 mb-1 uppercase">Gemini API Key (Wajib jika aplikasi di Github)</label>
+                                            <div className="flex justify-between items-center mb-1">
+                                                <label className="block text-xs font-bold text-purple-800 uppercase">Gemini API Key (Tersimpan di Cloud)</label>
+                                                {customApiKey && <span className="text-[10px] bg-green-500 text-white px-2 py-0.5 rounded-full font-bold">✅ Tersinkronisasi Global</span>}
+                                            </div>
                                             <input 
                                                 type="password" 
                                                 value={customApiKey} 
@@ -524,10 +620,24 @@
                                                     setCustomApiKey(e.target.value);
                                                     localStorage.setItem('gemini_api_key', e.target.value);
                                                 }} 
-                                                placeholder="Paste API Key AIzaSy... (Kosongkan jika main di web platform ini)" 
-                                                className="w-full p-2.5 border border-purple-200 rounded-lg text-sm outline-none bg-white focus:border-purple-600" 
+                                                onBlur={async (e) => {
+                                                    const newKey = e.target.value.trim();
+                                                    if(newKey && db) {
+                                                        try {
+                                                            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'gemini_config'), { 
+                                                                apiKey: newKey,
+                                                                updatedAt: Date.now()
+                                                            }, { merge: true });
+                                                            showToast("✅ API Key berhasil diamankan permanen ke Server Firebase!", "success");
+                                                        } catch(err) {
+                                                            console.error("Gagal save API key", err);
+                                                        }
+                                                    }
+                                                }}
+                                                placeholder="Paste API Key AIzaSy... (Klik di luar kotak untuk menyimpan otomatis)" 
+                                                className="w-full p-2.5 border border-purple-200 rounded-lg text-sm outline-none bg-white focus:border-purple-600 transition-colors" 
                                             />
-                                            <p className="text-[10px] text-purple-600 mt-1 font-medium">Dapatkan key gratis di <a href="https://aistudio.google.com/app/apikey" target="_blank" className="underline font-bold">Google AI Studio</a>.</p>
+                                            <p className="text-[10px] text-purple-600 mt-1 font-medium">Semua akun Guru akan menggunakan API Key ini secara bersama-sama. Dapatkan key di <a href="https://aistudio.google.com/app/apikey" target="_blank" className="underline font-bold">Google AI Studio</a>.</p>
                                         </div>
 
                                         <div>
@@ -574,7 +684,6 @@
                             </div>
                         )}
 
-                        {/* TAB 3: BANK SOAL MANAGEMENT WITH CLASS FILTER */}
                         {activeTeacherTab === 'bank' && (
                             <div className="space-y-6">
                                 <Card className="space-y-4">
@@ -597,7 +706,6 @@
                                         </div>
                                     </div>
 
-                                    {/* Filter Jenjang Kelas & Search Bar */}
                                     <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-slate-50 p-4 rounded-2xl border">
                                         <div className="flex items-center gap-2 w-full sm:w-auto">
                                             <span className="text-xs font-bold text-slate-500 uppercase whitespace-nowrap">Filter Jenjang:</span>
@@ -623,7 +731,6 @@
                                         </div>
                                     </div>
 
-                                    {/* List Soal Terfilter */}
                                     <div className="space-y-3 max-h-[55vh] overflow-y-auto pr-2">
                                         {subjectQuestions
                                             .filter(q => bankClassFilter === 'Semua Kelas' || q.classLevel === bankClassFilter)
@@ -671,7 +778,6 @@
                             </div>
                         )}
 
-                        {/* MODAL: TAMBAH SOAL MANUAL */}
                         <div id="manual-soal-modal" className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 backdrop-blur-sm hidden">
                             <div className="bg-white rounded-3xl p-6 md:p-8 max-w-3xl w-full shadow-2xl max-h-[90vh] overflow-y-auto">
                                 <div className="flex justify-between items-center mb-6">
@@ -765,7 +871,8 @@
 
             // Auth Modals
             const [adminModalOpen, setAdminModalOpen] = useState(false);
-            const [adminPass, setAdminPass] = useState('');
+            const [adminUserLogin, setAdminUserLogin] = useState('');
+            const [adminPassLogin, setAdminPassLogin] = useState('');
             const [teacherModalOpen, setTeacherModalOpen] = useState(false);
             const [teacherSelectedId, setTeacherSelectedId] = useState('');
             const [teacherPass, setTeacherPass] = useState('');
@@ -781,12 +888,19 @@
             const [masterQuestionBank, setMasterQuestionBank] = useState([]);
 
             const [selectedClass, setSelectedClass] = useState('Kelas 8 (VIII)');
+            const [selectedBoardKey, setSelectedBoardKey] = useState('classic');
             const [isProcessing, setIsProcessing] = useState(false);
+
+            // Admin Settings States
+            const [adminConfigUser, setAdminConfigUser] = useState('admin');
+            const [adminConfigPass, setAdminConfigPass] = useState('');
 
             // Student Join States
             const [joinCode, setJoinCode] = useState('');
             const [joinName, setJoinName] = useState('');
             const [selectedAvatar, setSelectedAvatar] = useState(null);
+            
+            const [hideQuestion, setHideQuestion] = useState(false);
 
             const boardCells = useMemo(() => {
                 const grid = [];
@@ -846,10 +960,8 @@
                 return () => unsubscribe();
             }, []);
 
-            // AUTO-RESTORE SESSION JIKA PAGE DI-REFRESH
             useEffect(() => {
                 const restoreSession = async () => {
-                    // Hanya lakukan pemulihan jika user sudah login Firebase dan sedang berada di halaman landing
                     if (!user || !db || currentView !== 'landing') return;
                     
                     const savedRoomId = localStorage.getItem('mt14_roomId');
@@ -864,13 +976,11 @@
                                 const rData = snap.data();
                                 
                                 if (savedRole === 'teacher' && rData.hostId === user.uid) {
-                                    // Pulihkan sesi Guru
                                     setRoomId(savedRoomId);
                                     setUserRole('teacher');
-                                    setCurrentView(rData.status); // Akan otomatis ke 'lobby', 'playing', atau 'finished'
+                                    setCurrentView(rData.status);
                                     showToast("Sesi mengajar berhasil dipulihkan!", "info");
                                 } else if (savedRole === 'student') {
-                                    // Pulihkan sesi Siswa
                                     const myPlayer = rData.players.find(p => p.id === user.uid);
                                     if (myPlayer) {
                                         setRoomId(savedRoomId);
@@ -879,13 +989,11 @@
                                         setCurrentView(rData.status);
                                         showToast("Sesi permainan berhasil dipulihkan! Melanjutkan progress...", "success");
                                     } else {
-                                        // Siswa sudah dihapus/dikeluarkan dari room
                                         localStorage.removeItem('mt14_roomId');
                                         localStorage.removeItem('mt14_role');
                                     }
                                 }
                             } else {
-                                // Room sudah dihapus atau tidak valid
                                 localStorage.removeItem('mt14_roomId');
                                 localStorage.removeItem('mt14_role');
                             }
@@ -900,12 +1008,10 @@
             useEffect(() => {
                 if (!user || !db) return;
                 
-                // Sync Teachers
                 const unsubTeachers = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'teachers'), async (snap) => {
                     const loaded = [];
                     snap.forEach(d => loaded.push({ id: d.id, ...d.data() }));
                     
-                    // Cegah auto-respawn jika admin sengaja menghapus semua guru
                     if (loaded.length === 0 && !window.__isTeacherSeeded) {
                         window.__isTeacherSeeded = true;
                         const defaults = [
@@ -921,12 +1027,10 @@
                     }
                 }, (err) => console.error("Sync teachers err:", err));
 
-                // Sync Questions
                 const unsubQuestions = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'questions'), async (snap) => {
                     const loaded = [];
                     snap.forEach(d => loaded.push({ id: d.id, ...d.data() }));
                     
-                    // Cegah auto-respawn jika admin/guru sengaja menghapus semua soal
                     if (loaded.length === 0 && !window.__isQuestionsSeeded) {
                         window.__isQuestionsSeeded = true;
                         const defaultQ = [
@@ -951,7 +1055,21 @@
                 const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
                 const unsubscribe = onSnapshot(roomRef, (snapshot) => {
                     if (snapshot.exists()) {
-                        setRoomData(snapshot.data());
+                        const rData = snapshot.data();
+                        setRoomData(rData);
+                        
+                        if (userRole === 'student' && rData.status !== 'finished') {
+                            const isStillInRoom = rData.players.some(p => p.id === user.uid);
+                            if (!isStillInRoom) {
+                                showToast("Anda telah keluar atau dikeluarkan dari ruangan.", "error");
+                                setRoomId(null);
+                                setRoomData(null);
+                                setPlayerData(null);
+                                setCurrentView('landing');
+                                localStorage.removeItem('mt14_roomId');
+                                localStorage.removeItem('mt14_role');
+                            }
+                        }
                     } else {
                         showToast("Room tidak ditemukan atau telah ditutup", "error");
                         handleLeaveRoom();
@@ -960,7 +1078,23 @@
                     console.error("Firestore snapshot error:", error);
                 });
                 return () => unsubscribe();
-            }, [user, roomId]);
+            }, [user, roomId, userRole]);
+
+            useEffect(() => {
+                const fetchAdminData = async () => {
+                    if (!db || currentView !== 'admin_dash') return;
+                    try {
+                        const snap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'admin_config'));
+                        if(snap.exists()) {
+                            setAdminConfigUser(snap.data().username || 'admin');
+                            setAdminConfigPass(snap.data().password || 'admin123');
+                        } else {
+                            setAdminConfigPass('admin123');
+                        }
+                    } catch(e) { console.error("Error fetching admin data"); }
+                };
+                fetchAdminData();
+            }, [db, appId, currentView]);
 
             const createRoom = async () => {
                 if (!user) {
@@ -978,12 +1112,14 @@
                     
                     activeQuestions = [...activeQuestions].sort(() => 0.5 - Math.random()).slice(0, 50);
 
+                    const chosenBoard = BOARD_LAYOUTS[selectedBoardKey] || BOARD_LAYOUTS.classic;
+
                     const initialRoomData = {
                         id: newRoomId,
                         status: 'lobby',
                         hostId: user.uid,
-                        config: { timer: 30, wrongPenalty: 0, maxPlayers: 32, subject: teacherSubject, classLevel: selectedClass },
-                        board: BOARD_LAYOUTS.classic,
+                        config: { timer: 30, wrongPenalty: 0, maxPlayers: 32, subject: teacherSubject, classLevel: selectedClass, boardName: chosenBoard.name },
+                        board: chosenBoard,
                         questions: activeQuestions,
                         players: [],
                         createdAt: Date.now()
@@ -994,7 +1130,6 @@
                     setUserRole('teacher');
                     setCurrentView('lobby');
                     
-                    // Simpan sesi Guru ke memori perangkat
                     localStorage.setItem('mt14_roomId', newRoomId);
                     localStorage.setItem('mt14_role', 'teacher');
                 } catch (e) {
@@ -1040,36 +1175,62 @@
                         score: 0,
                         correct: 0,
                         wrong: 0,
-                        currentState: 'answering',
-                        currentDice: null,
-                        status: 'online'
+                        currentState: 'waiting'
                     };
-
+                    
                     const updatedPlayers = [...rData.players, newPlayer];
                     await updateDoc(roomRef, { players: updatedPlayers });
-                    
-                    setPlayerData(newPlayer);
+
                     setRoomId(rCode);
                     setUserRole('student');
+                    setPlayerData(newPlayer);
                     setCurrentView('lobby');
                     
-                    // Simpan sesi Siswa ke memori perangkat agar tahan refresh
                     localStorage.setItem('mt14_roomId', rCode);
                     localStorage.setItem('mt14_role', 'student');
+                    showToast("Berhasil bergabung ke ruangan!", "success");
+
                 } catch (e) {
-                    showToast("Gagal bergabung ke room", "error");
+                    showToast("Terjadi kesalahan saat bergabung: " + e.message, "error");
                 }
             };
 
-            const handleLeaveRoom = () => {
+            const handleLeaveRoom = async () => {
+                if (userRole === 'student' && roomId && user) {
+                    try {
+                        const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
+                        const snap = await getDoc(roomRef);
+                        if (snap.exists()) {
+                            const updatedPlayers = snap.data().players.filter(p => p.id !== user.uid);
+                            await updateDoc(roomRef, { players: updatedPlayers });
+                        }
+                    } catch (e) {
+                        console.error("Gagal menghapus data siswa saat keluar", e);
+                    }
+                }
+                
                 setRoomId(null);
                 setRoomData(null);
                 setPlayerData(null);
                 setCurrentView(userRole === 'teacher' ? 'teacher_dash' : userRole === 'admin' ? 'admin_dash' : 'landing');
                 
-                // Bersihkan memori sesi setelah sengaja keluar
                 localStorage.removeItem('mt14_roomId');
                 localStorage.removeItem('mt14_role');
+            };
+
+            const kickPlayer = async (playerId) => {
+                if (userRole !== 'teacher' || !roomId) return;
+                try {
+                    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
+                    const snap = await getDoc(roomRef);
+                    if (snap.exists()) {
+                        const updatedPlayers = snap.data().players.filter(p => p.id !== playerId);
+                        await updateDoc(roomRef, { players: updatedPlayers });
+                        showToast("Siswa berhasil dikeluarkan dari ruangan.", "info");
+                    }
+                } catch (e) {
+                    showToast("Gagal mengeluarkan siswa", "error");
+                }
             };
 
             const startGame = async () => {
@@ -1108,6 +1269,7 @@
                         updatedPlayers[pIndex].currentState = 'rolling';
                         await updateDoc(roomRef, { players: updatedPlayers });
                         setIsProcessing(false);
+                        setHideQuestion(false);
                     } else {
                         playSound('wrong');
                         showToast("Jawaban Salah! Coba soal berikutnya...", "error");
@@ -1116,7 +1278,10 @@
                         if(newPos < 1) newPos = 1;
                         updatedPlayers[pIndex].position = newPos;
                         await updateDoc(roomRef, { players: updatedPlayers });
-                        setTimeout(() => setIsProcessing(false), 2000);
+                        setTimeout(() => {
+                            setIsProcessing(false);
+                            setHideQuestion(false);
+                        }, 2000);
                     }
                 } catch (e) {
                     setIsProcessing(false);
@@ -1184,6 +1349,7 @@
                                 showToast("SELAMAT KAMU MENCAPAI FINISH!", "success");
                             } else {
                                 up3[pIdx3].currentState = 'answering';
+                                setHideQuestion(false);
                             }
                             
                             await updateDoc(roomRef, { players: up3 });
@@ -1287,25 +1453,52 @@
                         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 backdrop-blur-sm">
                             <div className="bg-white rounded-3xl p-6 md:p-8 max-w-md w-full shadow-2xl">
                                 <h3 className="text-2xl font-bold text-brand-navy mb-2">Autentikasi Admin</h3>
-                                <p className="text-slate-500 text-sm mb-4">Masukkan password super admin (default: admin123)</p>
+                                <p className="text-slate-500 text-sm mb-4">Silakan masukkan username dan password admin</p>
+                                <input 
+                                    type="text" 
+                                    value={adminUserLogin} 
+                                    onChange={e => setAdminUserLogin(e.target.value)} 
+                                    placeholder="Username admin..."
+                                    className="w-full p-3 border-2 rounded-xl mb-3 font-medium outline-none focus:border-purple-600"
+                                    autoFocus
+                                />
                                 <input 
                                     type="password" 
-                                    value={adminPass} 
-                                    onChange={e => setAdminPass(e.target.value)} 
-                                    onKeyDown={e => { if(e.key === 'Enter') { if(adminPass === 'admin123') { setUserRole('admin'); setCurrentView('admin_dash'); setAdminModalOpen(false); } else { showToast("Password admin salah!", "error"); } } }}
+                                    value={adminPassLogin} 
+                                    onChange={e => setAdminPassLogin(e.target.value)} 
+                                    onKeyDown={async e => { 
+                                        if(e.key === 'Enter') {
+                                            const btn = document.getElementById('admin-login-btn');
+                                            if (btn) btn.click();
+                                        } 
+                                    }}
                                     placeholder="Password admin..."
                                     className="w-full p-3 border-2 rounded-xl mb-4 font-medium outline-none focus:border-purple-600"
-                                    autoFocus
                                 />
                                 <div className="flex gap-3">
                                     <Button variant="outline" className="flex-1" onClick={() => setAdminModalOpen(false)}>Batal</Button>
-                                    <Button className="flex-1 bg-purple-600 hover:bg-purple-700" onClick={() => {
-                                        if (adminPass === 'admin123') {
-                                            setUserRole('admin');
-                                            setCurrentView('admin_dash');
-                                            setAdminModalOpen(false);
-                                        } else {
-                                            showToast("Password admin salah!", "error");
+                                    <Button id="admin-login-btn" className="flex-1 bg-purple-600 hover:bg-purple-700" onClick={async () => {
+                                        try {
+                                            const adminRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'admin_config');
+                                            const snap = await getDoc(adminRef);
+                                            let validUser = 'admin';
+                                            let validPass = 'admin123';
+                                            if (snap.exists()) {
+                                                if(snap.data().username) validUser = snap.data().username;
+                                                if(snap.data().password) validPass = snap.data().password;
+                                            }
+                                            
+                                            if (adminUserLogin === validUser && adminPassLogin === validPass) {
+                                                setUserRole('admin');
+                                                setCurrentView('admin_dash');
+                                                setAdminModalOpen(false);
+                                                setAdminUserLogin('');
+                                                setAdminPassLogin('');
+                                            } else {
+                                                showToast("Username atau password salah!", "error");
+                                            }
+                                        } catch (e) {
+                                            showToast("Gagal memverifikasi akun admin", "error");
                                         }
                                     }}>Masuk Admin</Button>
                                 </div>
@@ -1394,12 +1587,21 @@
                                     {roomData.players.map(p => {
                                         const av = AVATARS.find(a => a.id === p.avatarId);
                                         return (
-                                            <div key={p.id} className="p-3 bg-white border rounded-xl flex items-center gap-3 shadow-sm">
+                                            <div key={p.id} className="p-3 bg-white border rounded-xl flex items-center gap-3 shadow-sm relative">
                                                 <div className={`w-10 h-10 rounded-full ${av?.bg} flex items-center justify-center text-xl`}>{av?.icon}</div>
-                                                <div className="min-w-0">
+                                                <div className="min-w-0 pr-8">
                                                     <div className="font-bold text-brand-navy truncate text-sm">{p.name}</div>
                                                     <div className="text-[10px] text-green-600 font-bold">Siap Bermain</div>
                                                 </div>
+                                                {isHost && (
+                                                    <button 
+                                                        onClick={() => kickPlayer(p.id)}
+                                                        className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center bg-red-100 text-red-600 rounded-full transition-colors hover:bg-red-500 hover:text-white text-xs font-bold"
+                                                        title="Keluarkan Siswa"
+                                                    >
+                                                        ✕
+                                                    </button>
+                                                )}
                                             </div>
                                         );
                                     })}
@@ -1427,78 +1629,116 @@
                 );
             };
 
-            const AdminDashboard = () => (
-                <div className="min-h-screen bg-slate-50 p-6">
-                    <div className="max-w-6xl mx-auto">
-                        <div className="flex justify-between items-center mb-8">
-                            <div>
-                                <h1 className="text-3xl font-display font-bold text-brand-navy">Panel Super Admin</h1>
-                                <p className="text-slate-500">Kelola Akun Guru & Bank Soal Global</p>
+            const AdminDashboard = () => {
+                return (
+                    <div className="min-h-screen bg-slate-50 p-6">
+                        <div className="max-w-6xl mx-auto">
+                            <div className="flex justify-between items-center mb-8">
+                                <div>
+                                    <h1 className="text-3xl font-display font-bold text-brand-navy">Panel Super Admin</h1>
+                                    <p className="text-slate-500">Kelola Akun Guru & Pengaturan Sistem</p>
+                                </div>
+                                <Button variant="outline" onClick={() => setCurrentView('landing')}>Keluar</Button>
                             </div>
-                            <Button variant="outline" onClick={() => setCurrentView('landing')}>Keluar</Button>
-                        </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                                <Card className="cursor-default">
+                                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><span>👨‍🏫</span> Tambah Akun Guru</h2>
+                                    <div className="space-y-3">
+                                        <div>
+                                            <label className="block text-sm font-bold text-slate-700 mb-1">Nama Guru</label>
+                                            <input type="text" value={newTeacherName} onChange={e => setNewTeacherName(e.target.value)} placeholder="Contoh: Bpk. Budi, M.Pd" className="w-full p-3 border rounded-xl font-medium outline-none bg-white focus:border-purple-600" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-bold text-slate-700 mb-1">Mata Pelajaran</label>
+                                            <select value={newTeacherSubject} onChange={e => setNewTeacherSubject(e.target.value)} className="w-full p-3 border rounded-xl font-medium outline-none bg-white focus:border-purple-600">
+                                                {SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-bold text-slate-700 mb-1">Password</label>
+                                            <input type="text" value={newTeacherPass} onChange={e => setNewTeacherPass(e.target.value)} placeholder="Default: guru123" className="w-full p-3 border rounded-xl font-medium outline-none bg-white focus:border-purple-600" />
+                                        </div>
+                                        <Button onClick={async () => {
+                                            if(!newTeacherName.trim()) { showToast("Nama guru tidak boleh kosong!", "error"); return; }
+                                            try {
+                                                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'teachers'), { 
+                                                    name: newTeacherName, 
+                                                    subject: newTeacherSubject, 
+                                                    pass: newTeacherPass 
+                                                });
+                                                setNewTeacherName('');
+                                                setNewTeacherPass('guru123');
+                                                showToast("Akun guru berhasil ditambahkan ke Database!", "success");
+                                            } catch(e) {
+                                                showToast("Gagal menyimpan akun guru ke database", "error");
+                                            }
+                                        }} className="w-full bg-purple-600 hover:bg-purple-700">Simpan Akun Guru</Button>
+                                    </div>
+                                </Card>
+
+                                <Card className="cursor-default">
+                                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><span>📋</span> Daftar Guru Terdaftar</h2>
+                                    <div className="space-y-2 max-h-64 overflow-y-auto pr-2">
+                                        {teachersList.map((t) => (
+                                            <div key={t.id} className="p-3 bg-slate-50 border rounded-xl flex justify-between items-center">
+                                                <div>
+                                                    <div className="font-bold text-brand-navy text-sm">{t.name}</div>
+                                                    <div className="text-xs text-brand-teal font-medium">{t.subject}</div>
+                                                </div>
+                                                <button 
+                                                    onClick={async () => {
+                                                        try {
+                                                            await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'teachers', t.id));
+                                                            showToast("Akun guru dihapus", "info");
+                                                        } catch(e) { showToast("Gagal menghapus", "error"); }
+                                                    }}
+                                                    className="text-red-500 hover:text-red-700 text-xs font-bold px-3 py-1.5 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
+                                                >
+                                                    Hapus
+                                                </button>
+                                            </div>
+                                        ))}
+                                        {teachersList.length === 0 && (
+                                            <div className="text-sm text-slate-500 text-center py-4">Belum ada akun guru terdaftar.</div>
+                                        )}
+                                    </div>
+                                </Card>
+                            </div>
+
                             <Card className="cursor-default">
-                                <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><span>👨‍🏫</span> Tambah Akun Guru Baru</h2>
-                                <div className="space-y-4">
-                                    <div>
-                                        <label className="block text-sm font-bold text-slate-700 mb-1">Nama Guru & Gelar</label>
-                                        <input type="text" value={newTeacherName} onChange={(e) => setNewTeacherName(e.target.value)} placeholder="Contoh: Dra. Hj. Nurul, M.Pd" className="w-full p-3 border rounded-xl font-medium outline-none bg-white" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-bold text-slate-700 mb-1">Mata Pelajaran (Mapel)</label>
-                                        <select value={newTeacherSubject} onChange={(e) => setNewTeacherSubject(e.target.value)} className="w-full p-3 border rounded-xl font-medium outline-none bg-white">
-                                            {SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-bold text-slate-700 mb-1">Password Akses</label>
-                                        <input type="text" value={newTeacherPass} onChange={(e) => setNewTeacherPass(e.target.value)} className="w-full p-3 border rounded-xl font-medium outline-none bg-white" />
+                                <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><span>🛡️</span> Pengaturan Kredensial Admin</h2>
+                                <div className="bg-slate-50 p-5 rounded-xl border border-slate-200">
+                                    <p className="text-sm text-slate-500 mb-4">Ubah username dan password utama untuk mengakses Panel Super Admin. Pastikan Anda mengingat data yang baru!</p>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                        <div>
+                                            <label className="block text-sm font-bold text-slate-700 mb-1">Username Admin Baru</label>
+                                            <input type="text" value={adminConfigUser} onChange={e => setAdminConfigUser(e.target.value)} className="w-full p-3 border rounded-xl font-medium outline-none bg-white focus:border-brand-teal" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-bold text-slate-700 mb-1">Password Admin Baru</label>
+                                            <input type="text" value={adminConfigPass} onChange={e => setAdminConfigPass(e.target.value)} className="w-full p-3 border rounded-xl font-medium outline-none bg-white focus:border-brand-teal" />
+                                        </div>
                                     </div>
                                     <Button onClick={async () => {
-                                        if(!newTeacherName.trim()) { showToast("Nama guru wajib diisi!", "error"); return; }
+                                        if(!adminConfigUser.trim() || !adminConfigPass.trim()) { showToast("Username dan Password tidak boleh kosong!", "error"); return; }
                                         try {
-                                            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'teachers'), { 
-                                                name: newTeacherName, 
-                                                subject: newTeacherSubject, 
-                                                pass: newTeacherPass 
-                                            });
-                                            setNewTeacherName('');
-                                            setNewTeacherPass('guru123');
-                                            showToast("Akun guru berhasil ditambahkan ke Database!", "success");
+                                            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'admin_config'), {
+                                                username: adminConfigUser.trim(),
+                                                password: adminConfigPass.trim(),
+                                                updatedAt: Date.now()
+                                            }, { merge: true });
+                                            showToast("Kredensial Admin berhasil diperbarui!", "success");
                                         } catch(e) {
-                                            showToast("Gagal menyimpan akun guru ke database", "error");
+                                            showToast("Gagal menyimpan kredensial", "error");
                                         }
-                                    }} className="w-full bg-purple-600 hover:bg-purple-700">Simpan Akun Guru</Button>
-                                </div>
-                            </Card>
-
-                            <Card className="cursor-default">
-                                <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><span>📋</span> Daftar Guru Terdaftar</h2>
-                                <div className="max-h-80 overflow-y-auto space-y-2 pr-2">
-                                    {teachersList.map(t => (
-                                        <div key={t.id} className="p-3 bg-slate-50 border rounded-xl flex justify-between items-center">
-                                            <div>
-                                                <div className="font-bold text-brand-navy">{t.name}</div>
-                                                <div className="text-xs text-brand-teal font-medium">Mapel: {t.subject} | Password: {t.pass}</div>
-                                            </div>
-                                            <button onClick={async () => {
-                                                try {
-                                                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'teachers', t.id));
-                                                    showToast("Akun guru dihapus dari database", "info");
-                                                } catch(e) {
-                                                    showToast("Gagal menghapus akun guru", "error");
-                                                }
-                                            }} className="text-red-500 hover:text-red-700 font-bold px-2 py-1">Hapus</button>
-                                        </div>
-                                    ))}
+                                    }} className="bg-brand-navy hover:bg-slate-800 text-white">Simpan Perubahan Admin</Button>
                                 </div>
                             </Card>
                         </div>
                     </div>
-                </div>
-            );
+                );
+            };
 
             const GameBoard = ({ roomData }) => {
                 const getCellCoords = (cellNum) => {
@@ -1510,38 +1750,82 @@
                     return { row: 9 - row, col: actualCol };
                 };
 
+                const currentBoardDef = roomData.board || BOARD_LAYOUTS.classic;
+                const cellColors = currentBoardDef.cellColors || ['bg-rose-200', 'bg-amber-200', 'bg-emerald-200', 'bg-sky-200', 'bg-violet-200'];
+
                 return (
-                    <div className="relative w-full max-w-2xl mx-auto shadow-2xl rounded-xl">
+                    <div className={`relative w-full max-w-2xl mx-auto shadow-2xl rounded-xl p-3 ${currentBoardDef.bgTheme || 'bg-white'}`}>
+                        <div className="mb-2 text-center font-bold text-xs opacity-75 uppercase tracking-wider">
+                            Tema Papan: {currentBoardDef.name || 'Klasik'}
+                        </div>
                         <div className="board-grid">
                             {boardCells.map((c) => (
-                                <div key={c.num} className={`board-cell ${(c.row + c.col) % 2 === 0 ? 'cell-even' : 'cell-odd'} relative`}>
-                                    <span className="absolute top-1 left-1 text-[10px] sm:text-xs opacity-50 font-bold">{c.num}</span>
-                                    {c.num === 1 && <span className="absolute bottom-1 right-1 text-[10px] text-brand-teal font-bold">START</span>}
-                                    {c.num === 100 && <span className="absolute top-1 right-1 text-[10px] text-brand-gold font-bold">FINISH</span>}
+                                <div key={c.num} className={`board-cell ${cellColors[c.num % cellColors.length]} relative border border-white/40 shadow-inner`}>
+                                    <span className="absolute top-1 left-1 text-[10px] sm:text-xs font-bold opacity-75">{c.num}</span>
+                                    {c.num === 1 && <span className="absolute bottom-1 right-1 text-[9px] font-bold bg-white/70 px-1 rounded text-black">START</span>}
+                                    {c.num === 100 && <span className="absolute top-1 right-1 text-[9px] font-bold bg-white/70 px-1 rounded text-black">FINISH</span>}
                                 </div>
                             ))}
 
-                            <svg className="absolute top-0 left-0 w-full h-full pointer-events-none" style={{ zIndex: 5 }}>
-                                {Object.entries(roomData.board.snakes).map(([start, end]) => {
+                            <svg viewBox="0 0 100 100" className="absolute top-0 left-0 w-full h-full pointer-events-none drop-shadow-lg" style={{ zIndex: 5 }}>
+                                {Object.entries(currentBoardDef.ladders || {}).map(([start, end]) => {
                                     const sCoord = getCellCoords(parseInt(start));
                                     const eCoord = getCellCoords(end);
+                                    
+                                    const sX = (sCoord.col * 10) + 5;
+                                    const sY = (sCoord.row * 10) + 5;
+                                    const eX = (eCoord.col * 10) + 5;
+                                    const eY = (eCoord.row * 10) + 5;
+                                    
+                                    const dx = eX - sX;
+                                    const dy = eY - sY;
+                                    const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+                                    const length = Math.sqrt(dx*dx + dy*dy);
+
                                     return (
-                                        <line key={`s-${start}`} 
-                                            x1={`${(sCoord.col * 10) + 5}%`} y1={`${(sCoord.row * 10) + 5}%`} 
-                                            x2={`${(eCoord.col * 10) + 5}%`} y2={`${(eCoord.row * 10) + 5}%`} 
-                                            className="snake-line" 
-                                        />
+                                        <g key={`l-${start}`} transform={`translate(${sX} ${sY}) rotate(${angle})`}>
+                                            <line x1="0" y1="-2" x2={length} y2="-2" stroke="#92400e" strokeWidth="1" strokeLinecap="round" />
+                                            <line x1="0" y1="2" x2={length} y2="2" stroke="#92400e" strokeWidth="1" strokeLinecap="round" />
+                                            {Array.from({length: Math.floor(length / 2.5)}).map((_, i) => (
+                                                <line key={`rung-${i}`} x1={(i+1)*2.5} y1="-2" x2={(i+1)*2.5} y2="2" stroke="#b45309" strokeWidth="0.8" />
+                                            ))}
+                                        </g>
                                     );
                                 })}
-                                {Object.entries(roomData.board.ladders).map(([start, end]) => {
+
+                                {Object.entries(currentBoardDef.snakes || {}).map(([start, end]) => {
                                     const sCoord = getCellCoords(parseInt(start));
                                     const eCoord = getCellCoords(end);
+                                    
+                                    const sX = (sCoord.col * 10) + 5;
+                                    const sY = (sCoord.row * 10) + 5;
+                                    const eX = (eCoord.col * 10) + 5;
+                                    const eY = (eCoord.row * 10) + 5;
+                                    
+                                    const dx = eX - sX;
+                                    const dy = eY - sY;
+                                    
+                                    const midX1 = sX + (dx * 0.2) + (dy * 0.4);
+                                    const midY1 = sY + (dy * 0.2) - (dx * 0.4);
+                                    const midX2 = sX + (dx * 0.8) - (dy * 0.4);
+                                    const midY2 = sY + (dy * 0.8) + (dx * 0.4);
+                                    const path = `M ${sX} ${sY} C ${midX1} ${midY1}, ${midX2} ${midY2}, ${eX} ${eY}`;
+                                    
+                                    const headAngle = Math.atan2(midY1 - sY, midX1 - sX) * (180 / Math.PI);
+
                                     return (
-                                        <line key={`l-${start}`} 
-                                            x1={`${(sCoord.col * 10) + 5}%`} y1={`${(sCoord.row * 10) + 5}%`} 
-                                            x2={`${(eCoord.col * 10) + 5}%`} y2={`${(eCoord.row * 10) + 5}%`} 
-                                            className="ladder-line" 
-                                        />
+                                        <g key={`s-${start}`}>
+                                            <path d={path} fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" />
+                                            <path d={path} fill="none" stroke="#14532d" strokeWidth="0.8" strokeDasharray="0.8 1.5" strokeLinecap="round" />
+                                            <g transform={`translate(${sX} ${sY}) rotate(${headAngle})`}>
+                                                <ellipse cx="0" cy="0" rx="2.5" ry="1.8" fill="#16a34a" />
+                                                <circle cx="1" cy="-1" r="0.6" fill="white" />
+                                                <circle cx="1" cy="1" r="0.6" fill="white" />
+                                                <circle cx="1.2" cy="-1" r="0.25" fill="black" />
+                                                <circle cx="1.2" cy="1" r="0.25" fill="black" />
+                                                <path d="M 2.5 0 L 4.5 0 L 5.5 -0.8 M 4.5 0 L 5.5 0.8" fill="none" stroke="#ef4444" strokeWidth="0.4" strokeLinecap="round" strokeLinejoin="round" />
+                                            </g>
+                                        </g>
                                     );
                                 })}
                             </svg>
@@ -1610,6 +1894,15 @@
                                                     <span className="text-brand-gold font-bold">{p.score} pts</span>
                                                 </div>
                                             </div>
+                                            {isTeacher && (
+                                                <button 
+                                                    onClick={() => kickPlayer(p.id)}
+                                                    className="w-8 h-8 flex items-center justify-center bg-red-50 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-colors flex-shrink-0 text-xs font-bold"
+                                                    title="Keluarkan Siswa"
+                                                >
+                                                    ✕
+                                                </button>
+                                            )}
                                         </div>
                                     )
                                 })}
@@ -1629,19 +1922,32 @@
                                         </div>
                                     </div>
                                 </div>
-                                {isTeacher && (
-                                    <Button variant="danger" className="py-2 text-sm" onClick={() => updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId), { status: 'finished' })}>Selesaikan Game</Button>
-                                )}
+                                <div className="flex items-center gap-3">
+                                    {!isTeacher && myPlayer?.currentState === 'answering' && hideQuestion && (
+                                        <Button onClick={() => setHideQuestion(false)} className="animate-pulse bg-brand-gold hover:bg-yellow-500 text-white border-none shadow-lg py-2 text-sm">
+                                            📝 Tampilkan Soal
+                                        </Button>
+                                    )}
+                                    {isTeacher && (
+                                        <Button variant="danger" className="py-2 text-sm" onClick={() => updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId), { status: 'finished' })}>Selesaikan Game</Button>
+                                    )}
+                                </div>
                             </div>
 
                             <div className="flex-1 flex items-center justify-center mb-6">
                                 {GameBoard({ roomData })}
                             </div>
 
-                            {!isTeacher && myPlayer?.currentState === 'answering' && (
+                            {!isTeacher && myPlayer?.currentState === 'answering' && !hideQuestion && (
                                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand-navy bg-opacity-80 p-4 backdrop-blur-sm">
-                                    <div className="bg-white rounded-3xl p-8 max-w-xl w-full shadow-2xl">
-                                        <div className="flex justify-between items-center mb-4">
+                                    <div className="bg-white rounded-3xl p-8 max-w-xl w-full shadow-2xl relative">
+                                        <button 
+                                            onClick={() => setHideQuestion(true)}
+                                            className="absolute top-4 right-4 bg-slate-100 text-slate-600 hover:bg-slate-200 px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-sm flex items-center gap-2"
+                                        >
+                                            👁️ Lihat Papan
+                                        </button>
+                                        <div className="flex justify-between items-center mb-4 pr-32">
                                             <span className="bg-brand-gold text-white text-xs font-bold px-3 py-1 rounded-full">SOAL PG MANDIRI #{qIndex + 1}</span>
                                         </div>
                                         <h3 className="text-xl font-bold text-brand-navy mb-6">{currentQuestion.q}</h3>
@@ -1714,7 +2020,14 @@
             };
 
             if (loading) {
-                return <div className="min-h-screen flex items-center justify-center text-brand-navy font-bold text-2xl">Memuat Sistem...</div>;
+                return (
+                    <div className="min-h-screen flex items-center justify-center text-brand-navy font-bold text-2xl bg-slate-50">
+                        <div className="text-center">
+                            <div className="text-4xl mb-3 animate-spin">⏳</div>
+                            <div>Menghubungkan ke Server Firebase...</div>
+                        </div>
+                    </div>
+                );
             }
 
             return (
@@ -1738,6 +2051,8 @@
                             showToast={showToast}
                             db={db}
                             appId={appId}
+                            selectedBoardKey={selectedBoardKey}
+                            setSelectedBoardKey={setSelectedBoardKey}
                         />
                     )}
                     {currentView === 'admin_dash' && AdminDashboard()}
