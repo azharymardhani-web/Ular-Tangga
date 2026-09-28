@@ -1905,57 +1905,64 @@
                                 </div>
                             </div>
 
-                            {/* TAMPILAN JAWAB SOAL */}
-                            {!isTeacher && myPlayer?.currentState === 'answering' && (
-                                <div className="bg-white rounded-2xl p-6 shadow-md border-2 border-brand-gold mb-6 relative">
-                                    {isProcessing && <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center font-bold text-brand-teal text-lg rounded-2xl backdrop-blur-sm">Memproses Jawaban...</div>}
-                                    <div className="flex justify-between items-center mb-3">
-                                        <span className="bg-brand-gold text-white text-xs font-bold px-3 py-1 rounded-full">SOAL UJIAN MANDIRI #{qIndex + 1}</span>
-                                        <span className="text-xs font-bold text-slate-500">Benar: {myPlayer.correct} | Salah: {myPlayer.wrong}</span>
+                            {/* AREA KONTROL UTAMA */}
+                            <div className="flex flex-col gap-4 mb-6">
+                                {/* TAMPILAN JAWAB SOAL SELALU MUNCUL KECUALI FINISH */}
+                                {!isTeacher && myPlayer?.currentState !== 'finished' && (
+                                    <div className={`bg-white rounded-2xl p-4 md:p-6 shadow-md border-2 transition-all ${myPlayer?.currentState !== 'answering' ? 'border-slate-200 opacity-60' : 'border-brand-gold relative'}`}>
+                                        {isProcessing && myPlayer?.currentState === 'answering' && <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center font-bold text-brand-teal text-lg rounded-2xl backdrop-blur-sm">Memproses Jawaban...</div>}
+                                        <div className="flex justify-between items-center mb-3">
+                                            <span className="bg-brand-gold text-white text-xs font-bold px-3 py-1 rounded-full">SOAL UJIAN MANDIRI #{qIndex + 1}</span>
+                                            <span className="text-xs font-bold text-slate-500">Benar: {myPlayer.correct} | Salah: {myPlayer.wrong}</span>
+                                        </div>
+                                        <h3 className="text-lg md:text-xl font-bold text-brand-navy mb-4">{currentQuestion.q}</h3>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                            {currentQuestion.options.map((opt, idx) => (
+                                                <button 
+                                                    key={idx}
+                                                    disabled={isProcessing || myPlayer?.currentState !== 'answering'}
+                                                    onClick={() => submitAnswer(idx)}
+                                                    className={`p-3.5 border-2 rounded-xl text-left font-medium transition-all text-sm disabled:cursor-not-allowed ${
+                                                        myPlayer?.currentState !== 'answering' ? 'bg-slate-100 border-slate-200 text-slate-500' : 'bg-slate-50 border-slate-200 hover:border-brand-teal hover:bg-teal-50 text-slate-700'
+                                                    }`}
+                                                >
+                                                    <span className="font-bold mr-2 text-slate-400">{String.fromCharCode(65 + idx)}.</span> {opt}
+                                                </button>
+                                            ))}
+                                        </div>
                                     </div>
-                                    <h3 className="text-lg md:text-xl font-bold text-brand-navy mb-4">{currentQuestion.q}</h3>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                        {currentQuestion.options.map((opt, idx) => (
-                                            <button 
-                                                key={idx}
-                                                disabled={isProcessing}
-                                                onClick={() => submitAnswer(idx)}
-                                                className="p-3.5 border-2 rounded-xl text-left font-medium hover:border-brand-teal hover:bg-teal-50 transition-all text-sm bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                            >
-                                                <span className="font-bold mr-2 text-slate-400">{String.fromCharCode(65 + idx)}.</span> {opt}
-                                            </button>
-                                        ))}
+                                )}
+
+                                {/* TAMPILAN KOCOK DADU */}
+                                {!isTeacher && myPlayer?.currentState === 'rolling' && (
+                                    <div className="bg-green-50 border-2 border-green-500 rounded-2xl p-6 shadow-lg text-center relative transform transition-all scale-100">
+                                        {isProcessing && <div className="absolute inset-0 bg-green-50/80 z-10 flex items-center justify-center font-bold text-green-700 text-lg rounded-2xl backdrop-blur-sm">Mengocok dadu...</div>}
+                                        <h3 className="text-xl font-bold text-green-800 mb-1">🎉 Jawaban Tepat!</h3>
+                                        <p className="text-sm text-green-600 mb-4">Waktunya melangkah di papan ular tangga.</p>
+                                        <Button onClick={rollDice} disabled={isProcessing} className="mx-auto px-10 py-4 text-xl bg-green-600 hover:bg-green-700 text-white shadow-xl flex items-center gap-2 animate-bounce">
+                                            <span className="text-3xl">🎲</span> KOCOK DADU SEKARANG!
+                                        </Button>
                                     </div>
-                                </div>
-                            )}
+                                )}
 
-                            {/* TAMPILAN KOCOK DADU */}
-                            {!isTeacher && myPlayer?.currentState === 'rolling' && (
-                                <div className="bg-green-50 border-2 border-green-500 rounded-2xl p-6 shadow-lg mb-6 text-center animate-pulse relative">
-                                    {isProcessing && <div className="absolute inset-0 bg-green-50/80 z-10 flex items-center justify-center font-bold text-green-700 text-lg rounded-2xl backdrop-blur-sm">Mengocok dadu...</div>}
-                                    <h3 className="text-lg font-bold text-green-800 mb-2">🎉 Jawaban Anda Benar!</h3>
-                                    <p className="text-sm text-green-600 mb-4">Silakan kocok dadu untuk melangkah di papan.</p>
-                                    <Button onClick={rollDice} disabled={isProcessing} className="mx-auto px-10 py-4 text-xl bg-green-600 hover:bg-green-700 text-white shadow-xl w-full sm:w-auto">
-                                        🎲 KOCOK DADU SEKARANG!
-                                    </Button>
-                                </div>
-                            )}
+                                {/* TAMPILAN PROSES JALAN */}
+                                {!isTeacher && myPlayer?.currentState === 'moving' && (
+                                    <div className="bg-blue-50 border-2 border-blue-400 rounded-2xl p-5 shadow-md text-center">
+                                        <h3 className="text-lg font-bold text-blue-800 flex items-center justify-center gap-2">
+                                            <span className="animate-bounce">🏃</span> Sedang Melangkah...
+                                        </h3>
+                                        <p className="text-sm text-blue-600">Perhatikan pergerakan pionmu di papan permainan!</p>
+                                    </div>
+                                )}
 
-                            {/* TAMPILAN PROSES JALAN */}
-                            {!isTeacher && myPlayer?.currentState === 'moving' && (
-                                <div className="bg-blue-50 border-2 border-blue-500 rounded-2xl p-6 shadow-lg mb-6 text-center animate-pulse">
-                                    <h3 className="text-lg font-bold text-blue-800 mb-2">🏃 Sedang Melangkah...</h3>
-                                    <p className="text-sm text-blue-600">Perhatikan pergerakan pionmu di papan permainan!</p>
-                                </div>
-                            )}
-
-                            {/* TAMPILAN FINISH */}
-                            {!isTeacher && myPlayer?.currentState === 'finished' && (
-                                <div className="bg-yellow-50 border-2 border-yellow-500 rounded-2xl p-6 shadow-lg mb-6 text-center">
-                                    <h3 className="text-xl font-bold text-yellow-800 mb-2">🏆 KAMU SUDAH FINISH!</h3>
-                                    <p className="text-sm text-yellow-600">Hebat! Tunggu teman-temanmu menyelesaikan permainannya ya.</p>
-                                </div>
-                            )}
+                                {/* TAMPILAN FINISH */}
+                                {!isTeacher && myPlayer?.currentState === 'finished' && (
+                                    <div className="bg-yellow-50 border-2 border-yellow-500 rounded-2xl p-6 shadow-lg text-center">
+                                        <h3 className="text-2xl font-bold text-yellow-800 mb-2">🏆 KAMU SUDAH FINISH!</h3>
+                                        <p className="text-slate-600">Luar biasa! Kamu telah menyelesaikan permainan dengan skor <b className="text-brand-gold">{myPlayer.score}</b></p>
+                                    </div>
+                                )}
+                            </div>
 
                             {/* PAPAN ULAR TANGGA */}
                             <div className="flex-1 flex items-center justify-center mb-6">
