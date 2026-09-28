@@ -215,7 +215,7 @@
             db,
             appId
         }) {
-            const { useState, useEffect } = React;
+            const { useState } = React;
             const assignedSubject = currentTeacher?.subject || "Informatika";
             
             const [activeTeacherTab, setActiveTeacherTab] = useState('create'); 
@@ -237,19 +237,6 @@
             const [aiLevel, setAiLevel] = useState('Sedang');
             const [isGenerating, setIsGenerating] = useState(false);
             const [customApiKey, setCustomApiKey] = useState(localStorage.getItem('gemini_api_key') || '');
-
-            // Sinkronisasi API Key secara Real-time dari Firebase Server
-            useEffect(() => {
-                if (!db || !appId) return;
-                const keyRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'gemini_config');
-                const unsub = onSnapshot(keyRef, (snap) => {
-                    if (snap.exists() && snap.data().apiKey) {
-                        setCustomApiKey(snap.data().apiKey);
-                        localStorage.setItem('gemini_api_key', snap.data().apiKey); // Backup lokal
-                    }
-                }, (err) => console.error("Gagal sinkron API Key dari server:", err));
-                return () => unsub();
-            }, [db, appId]);
 
             const subjectQuestions = masterQuestionBank.filter(q => q.subject === assignedSubject);
 
@@ -529,10 +516,7 @@
 
                                     <div className="space-y-4">
                                         <div className="bg-purple-50 p-4 rounded-xl border border-purple-100 mb-4">
-                                            <div className="flex justify-between items-center mb-1">
-                                                <label className="block text-xs font-bold text-purple-800 uppercase">Gemini API Key (Tersimpan di Cloud)</label>
-                                                {customApiKey && <span className="text-[10px] bg-green-500 text-white px-2 py-0.5 rounded-full font-bold">✅ Tersinkronisasi Global</span>}
-                                            </div>
+                                            <label className="block text-xs font-bold text-purple-800 mb-1 uppercase">Gemini API Key (Wajib jika aplikasi di Github)</label>
                                             <input 
                                                 type="password" 
                                                 value={customApiKey} 
@@ -540,24 +524,10 @@
                                                     setCustomApiKey(e.target.value);
                                                     localStorage.setItem('gemini_api_key', e.target.value);
                                                 }} 
-                                                onBlur={async (e) => {
-                                                    const newKey = e.target.value.trim();
-                                                    if(newKey && db) {
-                                                        try {
-                                                            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'gemini_config'), { 
-                                                                apiKey: newKey,
-                                                                updatedAt: Date.now()
-                                                            }, { merge: true });
-                                                            showToast("✅ API Key berhasil diamankan permanen ke Server Firebase!", "success");
-                                                        } catch(err) {
-                                                            console.error("Gagal save API key", err);
-                                                        }
-                                                    }
-                                                }}
-                                                placeholder="Paste API Key AIzaSy... (Klik di luar kotak untuk menyimpan otomatis)" 
-                                                className="w-full p-2.5 border border-purple-200 rounded-lg text-sm outline-none bg-white focus:border-purple-600 transition-colors" 
+                                                placeholder="Paste API Key AIzaSy... (Kosongkan jika main di web platform ini)" 
+                                                className="w-full p-2.5 border border-purple-200 rounded-lg text-sm outline-none bg-white focus:border-purple-600" 
                                             />
-                                            <p className="text-[10px] text-purple-600 mt-1 font-medium">Semua akun Guru akan menggunakan API Key ini secara bersama-sama. Dapatkan key di <a href="https://aistudio.google.com/app/apikey" target="_blank" className="underline font-bold">Google AI Studio</a>.</p>
+                                            <p className="text-[10px] text-purple-600 mt-1 font-medium">Dapatkan key gratis di <a href="https://aistudio.google.com/app/apikey" target="_blank" className="underline font-bold">Google AI Studio</a>.</p>
                                         </div>
 
                                         <div>
