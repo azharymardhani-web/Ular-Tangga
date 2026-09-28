@@ -1210,6 +1210,8 @@
                 await updateDoc(roomRef, { status: 'playing', players: startingPlayers });
             };
 
+            const sleep = ms => new Promise(r => setTimeout(r, ms));
+
             const submitAnswer = async (answerIndex) => {
                 if (userRole !== 'student' || !roomData || isProcessing) return;
                 const myPlayer = roomData.players.find(p => p.id === user.uid);
@@ -1217,13 +1219,24 @@
                 
                 setIsProcessing(true);
                 try {
+                    // Ambil data Paling Baru (Fresh Snapshot) untuk mencegah tabrakan progres antar pemain
                     const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
                     const snap = await getDoc(roomRef);
+                    if(!snap.exists()) throw new Error("Room missing");
+
                     let updatedPlayers = [...snap.data().players];
                     const pIndex = updatedPlayers.findIndex(p => p.id === user.uid);
+                    if(pIndex === -1) throw new Error("Player missing");
                     
-                    const qIndex = (updatedPlayers[pIndex].correct + updatedPlayers[pIndex].wrong) % snap.data().questions.length;
-                    const q = snap.data().questions[qIndex] || snap.data().questions[0];
+                    const qList = snap.data().questions || [];
+                    if(qList.length === 0) {
+                        showToast("Soal belum tersedia di server!", "error");
+                        return;
+                    }
+
+                    // Loop index soal secara aman
+                    const qIndex = (updatedPlayers[pIndex].correct + updatedPlayers[pIndex].wrong) % qList.length;
+                    const q = qList[qIndex];
                     const isCorrect = answerIndex === q.answer;
                     
                     if (isCorrect) {
@@ -1231,9 +1244,7 @@
                         showToast("Jawaban Benar! Tombol Kocok Dadu Telah Muncul.", "success");
                         updatedPlayers[pIndex].score += 100;
                         updatedPlayers[pIndex].correct += 1;
-                        updatedPlayers[pIndex].currentState = 'rolling'; // Status berubah menjadi rolling sehingga tombol dadu muncul
-                        await updateDoc(roomRef, { players: updatedPlayers });
-                        setIsProcessing(false);
+                        updatedPlayers[pIndex].currentState = 'rolling'; 
                     } else {
                         playSound('wrong');
                         showToast("Jawaban Salah! Coba soal berikutnya...", "error");
@@ -1241,13 +1252,18 @@
                         let newPos = updatedPlayers[pIndex].position - snap.data().config.wrongPenalty;
                         if(newPos < 1) newPos = 1;
                         updatedPlayers[pIndex].position = newPos;
-                        await updateDoc(roomRef, { players: updatedPlayers });
-                        setTimeout(() => {
-                            setIsProcessing(false);
-                        }, 1500);
+                    }
+                    
+                    await updateDoc(roomRef, { players: updatedPlayers });
+
+                    if (!isCorrect) {
+                         await sleep(1500); // Jeda agar siswa bisa membaca notif salah
                     }
                 } catch (e) {
-                    setIsProcessing(false);
+                    console.error("Submit Answer Error:", e);
+                    showToast("Gagal memproses jawaban. Silakan coba klik lagi.", "error");
+                } finally {
+                    setIsProcessing(false); // PASTIKAN TOMBOL SELALU DIBUKA KEMBALI
                 }
             };
 
@@ -1257,69 +1273,83 @@
                 if (!myPlayer || myPlayer.currentState !== 'rolling') return;
                 
                 setIsProcessing(true);
-                playSound('dice');
-                const diceValue = Math.floor(Math.random() * 6) + 1;
-                const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
-                
                 try {
-                    const snap = await getDoc(roomRef);
+                    playSound('dice');
+                    const diceValue = Math.floor(Math.random() * 6) + 1;
+                    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
+                    
+                    // Tahap 1: Kocok dadu dan tampilkan efek status melangkah
+                    let snap = await getDoc(roomRef);
+                    if(!snap.exists()) return;
                     let updatedPlayers = [...snap.data().players];
-                    const pIndex = updatedPlayers.findIndex(p => p.id === user.uid);
+                    let pIndex = updatedPlayers.findIndex(p => p.id === user.uid);
 
                     updatedPlayers[pIndex].currentDice = diceValue;
                     updatedPlayers[pIndex].currentState = 'moving';
                     await updateDoc(roomRef, { players: updatedPlayers });
 
-                    setTimeout(async () => {
-                        const snap2 = await getDoc(roomRef);
-                        let up2 = [...snap2.data().players];
-                        const pIdx2 = up2.findIndex(p => p.id === user.uid);
+                    await sleep(1500); // Tunggu animasi dadu berputar
 
-                        let newPos = up2[pIdx2].position + diceValue;
-                        if (newPos > 100) newPos = 100 - (newPos - 100);
-                        up2[pIdx2].position = newPos;
-                        await updateDoc(roomRef, { players: up2 });
+                    // Tahap 2: Gerakkan pion ke posisi baru di database
+                    snap = await getDoc(roomRef);
+                    updatedPlayers = [...snap.data().players];
+                    pIndex = updatedPlayers.findIndex(p => p.id === user.uid);
 
-                        setTimeout(async () => {
-                            const snap3 = await getDoc(roomRef);
-                            let up3 = [...snap3.data().players];
-                            const pIdx3 = up3.findIndex(p => p.id === user.uid);
+                    let newPos = updatedPlayers[pIndex].position + diceValue;
+                    if (newPos > 100) newPos = 100 - (newPos - 100); // Pantulkan jika melebihi 100
+                    updatedPlayers[pIndex].position = newPos;
+                    await updateDoc(roomRef, { players: updatedPlayers });
 
-                            let finalPos = up3[pIdx3].position;
-                            let hitEvent = false;
-                            let scoreModifier = 0;
+                    await sleep(1000); // Tunggu pion selesai berjalan di layar secara visual
 
-                            if (snap3.data().board.snakes[finalPos]) {
-                                finalPos = snap3.data().board.snakes[finalPos];
-                                hitEvent = 'snake';
-                                scoreModifier = -30;
-                            } else if (snap3.data().board.ladders[finalPos]) {
-                                finalPos = snap3.data().board.ladders[finalPos];
-                                hitEvent = 'ladder';
-                                scoreModifier = 50;
-                            }
+                    // Tahap 3: Cek jebakan Ular atau Tangga secara independen
+                    snap = await getDoc(roomRef);
+                    updatedPlayers = [...snap.data().players];
+                    pIndex = updatedPlayers.findIndex(p => p.id === user.uid);
 
-                            if (hitEvent) {
-                                up3[pIdx3].position = finalPos;
-                                up3[pIdx3].score += scoreModifier;
-                                showToast(hitEvent === 'ladder' ? 'Naik Tangga! +50' : 'Terkena Ular! -30', hitEvent === 'ladder' ? 'success' : 'error');
-                            }
+                    let finalPos = updatedPlayers[pIndex].position;
+                    let hitEvent = false;
+                    let scoreModifier = 0;
+                    const board = snap.data().board;
 
-                            if (finalPos === 100) {
-                                up3[pIdx3].score += 500;
-                                up3[pIdx3].currentState = 'finished';
-                                playSound('correct');
-                                showToast("SELAMAT KAMU MENCAPAI FINISH!", "success");
-                            } else {
-                                up3[pIdx3].currentState = 'answering'; // Kembali ke mode menjawab soal berikutnya
-                            }
-                            
-                            await updateDoc(roomRef, { players: up3 });
-                            setIsProcessing(false);
-                        }, 1000);
-                    }, 1500);
+                    if (board.snakes && board.snakes[finalPos]) {
+                        finalPos = board.snakes[finalPos];
+                        hitEvent = 'snake';
+                        scoreModifier = -30;
+                    } else if (board.ladders && board.ladders[finalPos]) {
+                        finalPos = board.ladders[finalPos];
+                        hitEvent = 'ladder';
+                        scoreModifier = 50;
+                    }
+
+                    if (hitEvent) {
+                        updatedPlayers[pIndex].position = finalPos;
+                        updatedPlayers[pIndex].score += scoreModifier;
+                        showToast(hitEvent === 'ladder' ? 'Naik Tangga! +50 Poin' : 'Aduh Terkena Ular! -30 Poin', hitEvent === 'ladder' ? 'success' : 'error');
+                        await updateDoc(roomRef, { players: updatedPlayers });
+                        await sleep(1000); // Tunggu animasi pion naik/turun
+                    }
+
+                    // Tahap 4: Akhiri giliran (kembali ke soal atau Finish)
+                    snap = await getDoc(roomRef);
+                    updatedPlayers = [...snap.data().players];
+                    pIndex = updatedPlayers.findIndex(p => p.id === user.uid);
+
+                    if (updatedPlayers[pIndex].position === 100) {
+                        updatedPlayers[pIndex].score += 500;
+                        updatedPlayers[pIndex].currentState = 'finished';
+                        playSound('correct');
+                        showToast("SELAMAT KAMU MENCAPAI FINISH!", "success");
+                    } else {
+                        updatedPlayers[pIndex].currentState = 'answering'; // Kembali jawab soal
+                    }
+                    
+                    await updateDoc(roomRef, { players: updatedPlayers });
                 } catch (e) {
-                    setIsProcessing(false);
+                    console.error("Roll Dice Error:", e);
+                    showToast("Koneksi bermasalah saat mengocok dadu. Silakan coba lagi.", "error");
+                } finally {
+                    setIsProcessing(false); // BUKA LOCK APAPUN YANG TERJADI
                 }
             };
 
@@ -1795,8 +1825,15 @@
                 if (!roomData) return null;
                 const isTeacher = userRole === 'teacher';
                 const myPlayer = isTeacher ? null : roomData.players.find(p => p.id === user?.uid);
-                const qIndex = myPlayer ? (myPlayer.correct + myPlayer.wrong) % roomData.questions.length : 0;
-                const currentQuestion = roomData.questions[qIndex] || roomData.questions[0]; 
+                
+                // Perlindungan Anti-Crash untuk Soal
+                const qList = roomData.questions || [];
+                const qIndex = myPlayer ? (myPlayer.correct + myPlayer.wrong) % Math.max(1, qList.length) : 0;
+                const currentQuestion = qList.length > 0 ? qList[qIndex] : {
+                    q: "Sedang memuat soal... (Tunggu sebentar atau hubungi guru jika macet)",
+                    options: ["-", "-", "-", "-"],
+                    answer: 0
+                }; 
 
                 return (
                     <div className="min-h-screen bg-slate-100 flex flex-col md:flex-row">
@@ -1863,9 +1900,10 @@
                                 </div>
                             </div>
 
-                            {/* SOAL DI HALAMAN UTAMA (Tanpa Modal Floating) */}
+                            {/* TAMPILAN JAWAB SOAL */}
                             {!isTeacher && myPlayer?.currentState === 'answering' && (
-                                <div className="bg-white rounded-2xl p-6 shadow-md border-2 border-brand-gold mb-6">
+                                <div className="bg-white rounded-2xl p-6 shadow-md border-2 border-brand-gold mb-6 relative">
+                                    {isProcessing && <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center font-bold text-brand-teal text-lg rounded-2xl backdrop-blur-sm">Memproses Jawaban...</div>}
                                     <div className="flex justify-between items-center mb-3">
                                         <span className="bg-brand-gold text-white text-xs font-bold px-3 py-1 rounded-full">SOAL UJIAN MANDIRI #{qIndex + 1}</span>
                                         <span className="text-xs font-bold text-slate-500">Benar: {myPlayer.correct} | Salah: {myPlayer.wrong}</span>
@@ -1877,7 +1915,7 @@
                                                 key={idx}
                                                 disabled={isProcessing}
                                                 onClick={() => submitAnswer(idx)}
-                                                className="p-3.5 border-2 rounded-xl text-left font-medium hover:border-brand-teal hover:bg-teal-50 transition-all text-sm bg-slate-50"
+                                                className="p-3.5 border-2 rounded-xl text-left font-medium hover:border-brand-teal hover:bg-teal-50 transition-all text-sm bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                             >
                                                 <span className="font-bold mr-2 text-slate-400">{String.fromCharCode(65 + idx)}.</span> {opt}
                                             </button>
@@ -1886,14 +1924,31 @@
                                 </div>
                             )}
 
-                            {/* TOMBOL KOCOK DADU MUNCUL HANYA KETIKA SOAL DIJAWAB BENAR */}
+                            {/* TAMPILAN KOCOK DADU */}
                             {!isTeacher && myPlayer?.currentState === 'rolling' && (
-                                <div className="bg-green-50 border-2 border-green-500 rounded-2xl p-6 shadow-lg mb-6 text-center animate-pulse">
+                                <div className="bg-green-50 border-2 border-green-500 rounded-2xl p-6 shadow-lg mb-6 text-center animate-pulse relative">
+                                    {isProcessing && <div className="absolute inset-0 bg-green-50/80 z-10 flex items-center justify-center font-bold text-green-700 text-lg rounded-2xl backdrop-blur-sm">Mengocok dadu...</div>}
                                     <h3 className="text-lg font-bold text-green-800 mb-2">🎉 Jawaban Anda Benar!</h3>
                                     <p className="text-sm text-green-600 mb-4">Silakan kocok dadu untuk melangkah di papan.</p>
-                                    <Button onClick={rollDice} disabled={isProcessing} className="mx-auto px-10 py-4 text-xl bg-green-600 hover:bg-green-700 text-white shadow-xl">
+                                    <Button onClick={rollDice} disabled={isProcessing} className="mx-auto px-10 py-4 text-xl bg-green-600 hover:bg-green-700 text-white shadow-xl w-full sm:w-auto">
                                         🎲 KOCOK DADU SEKARANG!
                                     </Button>
+                                </div>
+                            )}
+
+                            {/* TAMPILAN PROSES JALAN */}
+                            {!isTeacher && myPlayer?.currentState === 'moving' && (
+                                <div className="bg-blue-50 border-2 border-blue-500 rounded-2xl p-6 shadow-lg mb-6 text-center animate-pulse">
+                                    <h3 className="text-lg font-bold text-blue-800 mb-2">🏃 Sedang Melangkah...</h3>
+                                    <p className="text-sm text-blue-600">Perhatikan pergerakan pionmu di papan permainan!</p>
+                                </div>
+                            )}
+
+                            {/* TAMPILAN FINISH */}
+                            {!isTeacher && myPlayer?.currentState === 'finished' && (
+                                <div className="bg-yellow-50 border-2 border-yellow-500 rounded-2xl p-6 shadow-lg mb-6 text-center">
+                                    <h3 className="text-xl font-bold text-yellow-800 mb-2">🏆 KAMU SUDAH FINISH!</h3>
+                                    <p className="text-sm text-yellow-600">Hebat! Tunggu teman-temanmu menyelesaikan permainannya ya.</p>
                                 </div>
                             )}
 
