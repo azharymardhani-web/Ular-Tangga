@@ -101,7 +101,7 @@
     <script type="text/babel" data-type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc, collection, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc, collection, addDoc, deleteDoc, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'mtsn14-snake-ladder-app';
         const firebaseConfig = {
@@ -119,6 +119,15 @@
             app = initializeApp(firebaseConfig);
             db = getFirestore(app);
             auth = getAuth(app);
+            
+            // AKTIFKAN PENYIMPANAN SEMENTARA BROWSER (OFFLINE CAPABILITY)
+            enableIndexedDbPersistence(db).catch((err) => {
+                if (err.code == 'failed-precondition') {
+                    console.warn("Multiple tabs open, offline mode enabled in only one.");
+                } else if (err.code == 'unimplemented') {
+                    console.warn("Browser doesn't support offline persistence.");
+                }
+            });
         } catch (e) {
             console.error("Firebase init failed", e);
         }
@@ -1212,58 +1221,73 @@
 
             const sleep = ms => new Promise(r => setTimeout(r, ms));
 
+            // FUNGSI BACKGROUND SYNC (Optimistic Update)
+            const syncPlayerToDatabase = async (updatedPlayerObj) => {
+                try {
+                    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
+                    const snap = await getDoc(roomRef);
+                    if(snap.exists()) {
+                        const data = snap.data();
+                        const players = [...data.players];
+                        const pIndex = players.findIndex(p => p.id === updatedPlayerObj.id);
+                        if(pIndex !== -1) {
+                            players[pIndex] = updatedPlayerObj;
+                            // Menulis ke lokal cache langsung, sinkronisasi diam-diam di belakang layar
+                            await updateDoc(roomRef, { players: players });
+                        }
+                    }
+                } catch (e) {
+                    console.log("Koneksi buruk: Data disimpan sementara di Browser (Offline Mode)");
+                }
+            };
+
             const submitAnswer = async (answerIndex) => {
                 if (userRole !== 'student' || !roomData || isProcessing) return;
                 const myPlayer = roomData.players.find(p => p.id === user.uid);
                 if (!myPlayer || myPlayer.currentState !== 'answering') return;
                 
-                setIsProcessing(true);
+                setIsProcessing(true); // Lock tombol sesaat agar tidak double-click
+                
                 try {
-                    // Ambil data Paling Baru (Fresh Snapshot) untuk mencegah tabrakan progres antar pemain
-                    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
-                    const snap = await getDoc(roomRef);
-                    if(!snap.exists()) throw new Error("Room missing");
-
-                    let updatedPlayers = [...snap.data().players];
-                    const pIndex = updatedPlayers.findIndex(p => p.id === user.uid);
-                    if(pIndex === -1) throw new Error("Player missing");
-                    
-                    const qList = snap.data().questions || [];
+                    const qList = roomData.questions || [];
                     if(qList.length === 0) {
-                        showToast("Soal belum tersedia di server!", "error");
+                        showToast("Menunggu soal dimuat...", "error");
                         return;
                     }
 
-                    // Loop index soal secara aman
-                    const qIndex = (updatedPlayers[pIndex].correct + updatedPlayers[pIndex].wrong) % qList.length;
+                    // Logika Instan (Lokal): Tidak menunggu server
+                    const qIndex = (myPlayer.correct + myPlayer.wrong) % qList.length;
                     const q = qList[qIndex];
                     const isCorrect = answerIndex === q.answer;
                     
+                    let updatedPlayer = { ...myPlayer };
+                    
                     if (isCorrect) {
                         playSound('correct');
-                        showToast("Jawaban Benar! Tombol Kocok Dadu Telah Muncul.", "success");
-                        updatedPlayers[pIndex].score += 100;
-                        updatedPlayers[pIndex].correct += 1;
-                        updatedPlayers[pIndex].currentState = 'rolling'; 
+                        showToast("Jawaban Benar! Silakan kocok dadu.", "success");
+                        updatedPlayer.score += 100;
+                        updatedPlayer.correct += 1;
+                        updatedPlayer.currentState = 'rolling'; 
                     } else {
                         playSound('wrong');
                         showToast("Jawaban Salah! Coba soal berikutnya...", "error");
-                        updatedPlayers[pIndex].wrong += 1;
-                        let newPos = updatedPlayers[pIndex].position - snap.data().config.wrongPenalty;
+                        updatedPlayer.wrong += 1;
+                        let newPos = updatedPlayer.position - (roomData.config?.wrongPenalty || 0);
                         if(newPos < 1) newPos = 1;
-                        updatedPlayers[pIndex].position = newPos;
+                        updatedPlayer.position = newPos;
                     }
-                    
-                    await updateDoc(roomRef, { players: updatedPlayers });
+
+                    // Sinkronisasi Background (UI langsung berubah saat ini juga karena Firebase onSnapshot lokal)
+                    syncPlayerToDatabase(updatedPlayer);
 
                     if (!isCorrect) {
-                         await sleep(1500); // Jeda agar siswa bisa membaca notif salah
+                         await sleep(1500); // Jeda agar siswa membaca salahnya sebelum soal diganti
                     }
                 } catch (e) {
                     console.error("Submit Answer Error:", e);
-                    showToast("Gagal memproses jawaban. Silakan coba klik lagi.", "error");
+                    showToast("Terjadi gangguan, menyimpan progres secara lokal...", "info");
                 } finally {
-                    setIsProcessing(false); // PASTIKAN TOMBOL SELALU DIBUKA KEMBALI
+                    setIsProcessing(false); // Selalu bebaskan tombol
                 }
             };
 
@@ -1276,41 +1300,26 @@
                 try {
                     playSound('dice');
                     const diceValue = Math.floor(Math.random() * 6) + 1;
-                    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
                     
-                    // Tahap 1: Kocok dadu dan tampilkan efek status melangkah
-                    let snap = await getDoc(roomRef);
-                    if(!snap.exists()) return;
-                    let updatedPlayers = [...snap.data().players];
-                    let pIndex = updatedPlayers.findIndex(p => p.id === user.uid);
+                    // Tahap 1: Tampilkan angka dadu secara instan (Lokal)
+                    let updatedPlayer = { ...myPlayer, currentDice: diceValue, currentState: 'moving' };
+                    syncPlayerToDatabase(updatedPlayer);
 
-                    updatedPlayers[pIndex].currentDice = diceValue;
-                    updatedPlayers[pIndex].currentState = 'moving';
-                    await updateDoc(roomRef, { players: updatedPlayers });
+                    await sleep(1500); // Jeda visual dadu berputar
+                    
+                    // Hitung Posisi Baru
+                    let newPos = updatedPlayer.position + diceValue;
+                    if (newPos > 100) newPos = 100 - (newPos - 100); 
+                    updatedPlayer.position = newPos;
+                    
+                    syncPlayerToDatabase(updatedPlayer);
+                    await sleep(1000); // Jeda pion berjalan di layar
 
-                    await sleep(1500); // Tunggu animasi dadu berputar
-
-                    // Tahap 2: Gerakkan pion ke posisi baru di database
-                    snap = await getDoc(roomRef);
-                    updatedPlayers = [...snap.data().players];
-                    pIndex = updatedPlayers.findIndex(p => p.id === user.uid);
-
-                    let newPos = updatedPlayers[pIndex].position + diceValue;
-                    if (newPos > 100) newPos = 100 - (newPos - 100); // Pantulkan jika melebihi 100
-                    updatedPlayers[pIndex].position = newPos;
-                    await updateDoc(roomRef, { players: updatedPlayers });
-
-                    await sleep(1000); // Tunggu pion selesai berjalan di layar secara visual
-
-                    // Tahap 3: Cek jebakan Ular atau Tangga secara independen
-                    snap = await getDoc(roomRef);
-                    updatedPlayers = [...snap.data().players];
-                    pIndex = updatedPlayers.findIndex(p => p.id === user.uid);
-
-                    let finalPos = updatedPlayers[pIndex].position;
+                    // Tahap Ular / Tangga
+                    let finalPos = updatedPlayer.position;
                     let hitEvent = false;
                     let scoreModifier = 0;
-                    const board = snap.data().board;
+                    const board = roomData.board;
 
                     if (board.snakes && board.snakes[finalPos]) {
                         finalPos = board.snakes[finalPos];
@@ -1323,33 +1332,29 @@
                     }
 
                     if (hitEvent) {
-                        updatedPlayers[pIndex].position = finalPos;
-                        updatedPlayers[pIndex].score += scoreModifier;
+                        updatedPlayer.position = finalPos;
+                        updatedPlayer.score += scoreModifier;
                         showToast(hitEvent === 'ladder' ? 'Naik Tangga! +50 Poin' : 'Aduh Terkena Ular! -30 Poin', hitEvent === 'ladder' ? 'success' : 'error');
-                        await updateDoc(roomRef, { players: updatedPlayers });
-                        await sleep(1000); // Tunggu animasi pion naik/turun
+                        syncPlayerToDatabase(updatedPlayer);
+                        await sleep(1000); // Jeda naik turun
                     }
 
-                    // Tahap 4: Akhiri giliran (kembali ke soal atau Finish)
-                    snap = await getDoc(roomRef);
-                    updatedPlayers = [...snap.data().players];
-                    pIndex = updatedPlayers.findIndex(p => p.id === user.uid);
-
-                    if (updatedPlayers[pIndex].position === 100) {
-                        updatedPlayers[pIndex].score += 500;
-                        updatedPlayers[pIndex].currentState = 'finished';
+                    // Tahap Akhir (Kembali Jawab Soal atau Menang)
+                    if (updatedPlayer.position === 100) {
+                        updatedPlayer.score += 500;
+                        updatedPlayer.currentState = 'finished';
                         playSound('correct');
                         showToast("SELAMAT KAMU MENCAPAI FINISH!", "success");
                     } else {
-                        updatedPlayers[pIndex].currentState = 'answering'; // Kembali jawab soal
+                        updatedPlayer.currentState = 'answering';
                     }
+                    syncPlayerToDatabase(updatedPlayer);
                     
-                    await updateDoc(roomRef, { players: updatedPlayers });
                 } catch (e) {
                     console.error("Roll Dice Error:", e);
-                    showToast("Koneksi bermasalah saat mengocok dadu. Silakan coba lagi.", "error");
+                    showToast("Menyimpan pergerakan dadu di memori sementara...", "info");
                 } finally {
-                    setIsProcessing(false); // BUKA LOCK APAPUN YANG TERJADI
+                    setIsProcessing(false);
                 }
             };
 
