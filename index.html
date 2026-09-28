@@ -159,21 +159,21 @@
 
         const BOARD_LAYOUTS = {
             classic: {
-                name: "1. Klasik Tradisional",
+                name: "Reference Classic Board (Sesuai Gambar)",
                 bgTheme: "bg-white",
                 cellColors: ['bg-rose-200', 'bg-amber-200', 'bg-emerald-200', 'bg-sky-200', 'bg-violet-200'],
                 snakes: { 99: 79, 93: 88, 89: 72, 74: 55, 62: 41, 54: 35, 32: 11, 16: 4 },
                 ladders: { 3: 18, 9: 29, 21: 40, 26: 76, 52: 68, 56: 95, 80: 99 }
             },
             islamic: {
-                name: "2. Islamic Heritage (Nuansa Madinah)",
+                name: "Islamic Heritage (Nuansa Madinah)",
                 bgTheme: "bg-emerald-50",
                 cellColors: ['bg-emerald-100', 'bg-amber-100', 'bg-teal-100', 'bg-yellow-50', 'bg-lime-100'],
                 snakes: { 98: 80, 91: 73, 85: 66, 68: 45, 59: 38, 47: 22, 28: 10 },
                 ladders: { 4: 25, 13: 42, 33: 54, 50: 77, 61: 89, 70: 96 }
             },
             space: {
-                name: "3. Futuristic Galaxy (Eksplorasi Antariksa)",
+                name: "Futuristic Galaxy (Eksplorasi Antariksa)",
                 bgTheme: "bg-slate-900 text-white",
                 cellColors: ['bg-slate-800', 'bg-indigo-900', 'bg-purple-950', 'bg-blue-950', 'bg-zinc-800'],
                 snakes: { 97: 76, 92: 65, 84: 52, 75: 44, 63: 31, 48: 15, 30: 5 },
@@ -210,6 +210,34 @@
             </div>
         );
 
+        class ErrorBoundary extends React.Component {
+            constructor(props) {
+                super(props);
+                this.state = { hasError: false, error: null };
+            }
+            static getDerivedStateFromError(error) {
+                return { hasError: true, error };
+            }
+            componentDidCatch(error, errorInfo) {
+                console.error("ErrorBoundary caught an error", error, errorInfo);
+            }
+            render() {
+                if (this.state.hasError) {
+                    return (
+                        <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-slate-50 text-center">
+                            <div className="max-w-md bg-white p-8 rounded-3xl shadow-xl border border-red-100">
+                                <div className="text-4xl mb-4">⚠️</div>
+                                <h1 className="text-2xl font-bold text-brand-navy mb-2">Terjadi Kesalahan Render</h1>
+                                <p className="text-slate-600 text-sm mb-6">Aplikasi mendeteksi kendala pada pemuatan data atau state. Silakan muat ulang halaman.</p>
+                                <Button onClick={() => window.location.reload()} className="w-full">Muat Ulang Halaman</Button>
+                            </div>
+                        </div>
+                    );
+                }
+                return this.props.children;
+            }
+        }
+
         function ReactApp() {
             const { useState, useEffect, useMemo } = React;
 
@@ -234,21 +262,19 @@
             const [teacherSelectedId, setTeacherSelectedId] = useState('');
             const [teacherPass, setTeacherPass] = useState('');
 
-            // Teachers List - Dimuat dari Firebase
+            // Teachers List & Question Bank
             const [teachersList, setTeachersList] = useState([]);
-            
             const [newTeacherName, setNewTeacherName] = useState('');
             const [newTeacherSubject, setNewTeacherSubject] = useState('Informatika');
             const [newTeacherPass, setNewTeacherPass] = useState('guru123');
 
-            // Master Question Bank - Dimuat dari Firebase
             const [masterQuestionBank, setMasterQuestionBank] = useState([]);
 
             const [selectedClass, setSelectedClass] = useState('Kelas 8 (VIII)');
             const [selectedBoardKey, setSelectedBoardKey] = useState('classic');
             const [isProcessing, setIsProcessing] = useState(false);
 
-            // Admin Settings States
+            // Admin Settings
             const [adminConfigUser, setAdminConfigUser] = useState('admin');
             const [adminConfigPass, setAdminConfigPass] = useState('admin123');
 
@@ -259,7 +285,7 @@
             
             const [hideQuestion, setHideQuestion] = useState(false);
 
-            // Teacher Tab State
+            // Teacher Tab States
             const [activeTeacherTab, setActiveTeacherTab] = useState('create');
             const [bankClassFilter, setBankClassFilter] = useState('Semua Kelas');
             const [searchQuery, setSearchQuery] = useState('');
@@ -279,7 +305,7 @@
             const [aiCount, setAiCount] = useState(10);
             const [aiLevel, setAiLevel] = useState('Sedang');
             const [isGenerating, setIsGenerating] = useState(false);
-            const [customApiKey, setCustomApiKey] = useState(localStorage.getItem('gemini_api_key') || '');
+            const [customApiKey, setCustomApiKey] = useState('');
 
             const boardCells = useMemo(() => {
                 const grid = [];
@@ -474,7 +500,6 @@
                         return;
                     }
 
-                    // Buat urutan soal pribadi untuk siswa ini agar mandiri/tidak bersamaan traffic-nya
                     const shuffledQuestions = [...rData.questions].sort(() => 0.5 - Math.random());
 
                     const newPlayer = {
@@ -1484,7 +1509,7 @@
                     return { row: 9 - row, col: actualCol };
                 };
 
-                const currentBoardDef = roomData.board || BOARD_LAYOUTS.classic;
+                const currentBoardDef = roomData?.board || BOARD_LAYOUTS.classic;
                 const cellColors = currentBoardDef.cellColors || ['bg-rose-200', 'bg-amber-200', 'bg-emerald-200', 'bg-sky-200', 'bg-violet-200'];
 
                 return (
@@ -1501,7 +1526,7 @@
                                 </div>
                             ))}
 
-                            {roomData.players.map((p) => {
+                            {roomData?.players?.map((p) => {
                                 if (p.position === 0) return null;
                                 const coord = getCellCoords(p.position);
                                 const ava = AVATARS.find(a => a.id === p.avatarId);
@@ -1533,12 +1558,11 @@
             const GamePlay = () => {
                 if (!roomData) return null;
                 const isTeacher = userRole === 'teacher';
-                const myPlayer = isTeacher ? null : roomData.players.find(p => p.id === user?.uid);
+                const myPlayer = isTeacher ? null : roomData.players?.find(p => p.id === user?.uid);
                 
-                // Ambil soal dari personalQuestions siswa agar tiap siswa mandiri/tidak bersamaan traffic-nya
-                const studentQuestions = myPlayer?.personalQuestions && myPlayer.personalQuestions.length > 0 ? myPlayer.personalQuestions : roomData.questions;
-                const qIndex = myPlayer ? (myPlayer.correct + myPlayer.wrong) % studentQuestions.length : 0;
-                const currentQuestion = studentQuestions[qIndex] || studentQuestions[0]; 
+                const studentQuestions = myPlayer?.personalQuestions && myPlayer.personalQuestions.length > 0 ? myPlayer.personalQuestions : roomData.questions || [];
+                const qIndex = myPlayer ? (myPlayer.correct + myPlayer.wrong) % (studentQuestions.length || 1) : 0;
+                const currentQuestion = studentQuestions[qIndex] || studentQuestions[0] || { q: "Memuat soal...", options: ["A", "B", "C", "D"], answer: 0 }; 
 
                 return (
                     <div className="min-h-screen bg-slate-100 flex flex-col md:flex-row">
@@ -1550,11 +1574,11 @@
                             
                             <div className="p-3 bg-slate-50 border-b flex justify-between items-center">
                                 <span className="font-bold text-slate-600 text-sm">🏆 KLASEMEN LIVE</span>
-                                <span className="text-xs bg-white px-2 py-1 rounded shadow-sm">{roomData.players.length} Pemain</span>
+                                <span className="text-xs bg-white px-2 py-1 rounded shadow-sm">{roomData.players?.length || 0} Pemain</span>
                             </div>
                             
                             <div className="flex-1 overflow-y-auto p-2 space-y-2">
-                                {[...roomData.players].sort((a,b) => b.position - a.position || b.score - a.score).map((p, index) => {
+                                {[...(roomData.players || [])].sort((a,b) => b.position - a.position || b.score - a.score).map((p, index) => {
                                     const ava = AVATARS.find(a => a.id === p.avatarId);
                                     const isMe = p.id === user?.uid;
                                     return (
@@ -1609,7 +1633,7 @@
                             </div>
 
                             <div className="flex-1 flex items-center justify-center mb-6">
-                                {GameBoard({ roomData })}
+                                <GameBoard roomData={roomData} />
                             </div>
 
                             {!isTeacher && myPlayer?.currentState === 'answering' && !hideQuestion && (
@@ -1655,7 +1679,7 @@
 
             const ResultScreen = () => {
                 if(!roomData) return null;
-                const sortedPlayers = [...roomData.players].sort((a,b) => b.score - a.score || b.position - a.position);
+                const sortedPlayers = [...(roomData.players || [])].sort((a,b) => b.score - a.score || b.position - a.position);
 
                 return (
                     <div className="min-h-screen bg-brand-navy text-white p-6 flex flex-col items-center justify-center overflow-y-auto">
@@ -1720,7 +1744,11 @@
         }
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<ReactApp />);
+        root.render(
+            <ErrorBoundary>
+                <ReactApp />
+            </ErrorBoundary>
+        );
     </script>
 </body>
 </html>
