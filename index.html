@@ -39,7 +39,7 @@
     <style>
         body { background-color: #f8fafc; overflow-x: hidden; }
         .glass-panel {
-            background: rgba(255, 255, 255, 0.92);
+            background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.3);
             box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
@@ -62,19 +62,19 @@
             align-items: center;
             justify-content: center;
             font-weight: bold;
-            font-size: 1rem;
+            font-size: 0.85rem;
             color: rgba(0,0,0,0.35);
             position: relative;
         }
         .player-token {
             position: absolute;
-            width: 80%;
-            height: 80%;
+            width: 75%;
+            height: 75%;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.25rem;
+            font-size: 1rem;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
             transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
             z-index: 10;
@@ -280,7 +280,7 @@
             selectedBoardKey,
             setSelectedBoardKey
         }) {
-            const { useState } = React;
+            const { useState, useEffect } = React;
             const assignedSubject = currentTeacher?.subject || "Informatika";
             
             const [activeTeacherTab, setActiveTeacherTab] = useState('create'); 
@@ -293,6 +293,26 @@
             const [manualOptC, setManualOptC] = useState('');
             const [manualOptD, setManualOptD] = useState('');
             const [manualAns, setManualAns] = useState(0);
+            const [manualLevel, setManualLevel] = useState('Sedang');
+            const [manualMaterial, setManualMaterial] = useState('Umum');
+
+            const [aiTopic, setAiTopic] = useState('');
+            const [aiCount, setAiCount] = useState(10);
+            const [aiLevel, setAiLevel] = useState('Sedang');
+            const [isGenerating, setIsGenerating] = useState(false);
+            const [customApiKey, setCustomApiKey] = useState(localStorage.getItem('gemini_api_key') || '');
+
+            useEffect(() => {
+                if (!db || !appId) return;
+                const keyRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'gemini_config');
+                const unsub = onSnapshot(keyRef, (snap) => {
+                    if (snap.exists() && snap.data().apiKey) {
+                        setCustomApiKey(snap.data().apiKey);
+                        localStorage.setItem('gemini_api_key', snap.data().apiKey);
+                    }
+                }, (err) => console.error("Gagal sinkron API Key:", err));
+                return () => unsub();
+            }, [db, appId]);
 
             const subjectQuestions = masterQuestionBank.filter(q => q.subject === assignedSubject);
 
@@ -326,6 +346,7 @@
                                 parsedList.push({
                                     subject: assignedSubject,
                                     classLevel: selectedClass,
+                                    material: 'Umum',
                                     q: row[0].replace(/^"|"$/g, ''),
                                     options: [
                                         row[1].replace(/^"|"$/g, ''),
@@ -334,6 +355,7 @@
                                         row[4].replace(/^"|"$/g, '')
                                     ],
                                     answer: parseInt(row[5]) || 0,
+                                    level: 'Sedang',
                                     createdAt: Date.now()
                                 });
                             }
@@ -362,6 +384,8 @@
                 const newQ = {
                     subject: assignedSubject,
                     classLevel: selectedClass,
+                    material: manualMaterial,
+                    level: manualLevel,
                     q: manualQ,
                     options: [manualOptA, manualOptB, manualOptC, manualOptD],
                     answer: Number(manualAns),
@@ -377,6 +401,78 @@
                     showToast(`Soal berhasil ditambahkan ke Database Firebase!`, "success");
                 } catch(e) {
                     showToast("Gagal menyimpan soal ke database", "error");
+                }
+            };
+
+            const handleGenerateAIQuestions = async () => {
+                if (!aiTopic.trim()) {
+                    showToast("Harap masukkan topik/materi pembahasan terlebih dahulu!", "error");
+                    return;
+                }
+                setIsGenerating(true);
+                showToast(`Menghubungkan ke Gemini AI untuk membuat ${aiCount} soal ${selectedClass}...`, "info");
+
+                const apiKey = customApiKey.trim() || "";
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+                const systemPrompt = `Anda adalah seorang guru ahli pembuat soal ujian madrasah tsanawiyah (MTs) di Indonesia. Berdasarkan standar kompetensi Kurikulum Merdeka (KBC), buatlah tepat ${aiCount} buah soal Pilihan Ganda (PG) 4 opsi (A, B, C, D) berkualitas tinggi mata pelajaran ${assignedSubject} untuk tingkat ${selectedClass} dengan topik: "${aiTopic}". Tingkat kesulitan: ${aiLevel}.`;
+                
+                const userQuery = `Berikan response dalam format JSON murni berupa array of objects tanpa markdown tambahan, dengan struktur:
+                [
+                  {
+                    "q": "Pertanyaan soal...",
+                    "options": ["Opsi A", "Opsi B", "Opsi C", "Opsi D"],
+                    "answer": 0
+                  }
+                ]
+                Di mana "answer" adalah indeks jawaban benar dari 0 sampai 3 (0 untuk A, 1 untuk B, 2 untuk C, 3 untuk D).`;
+
+                const payload = {
+                    contents: [{ parts: [{ text: userQuery }] }],
+                    systemInstruction: { parts: [{ text: systemPrompt }] },
+                    generationConfig: { responseMimeType: "application/json" }
+                };
+
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    const result = await response.json();
+                    const candidate = result.candidates?.[0];
+                    if (candidate && candidate.content?.parts?.[0]?.text) {
+                        const rawJson = candidate.content.parts[0].text;
+                        const parsed = JSON.parse(rawJson);
+                        if (Array.isArray(parsed) && parsed.length > 0) {
+                            const generatedQuestions = parsed.map((item) => ({
+                                subject: assignedSubject,
+                                classLevel: selectedClass,
+                                material: aiTopic,
+                                level: aiLevel,
+                                q: item.q || "Pertanyaan AI",
+                                options: item.options || ["A", "B", "C", "D"],
+                                answer: Number(item.answer) >= 0 && Number(item.answer) <= 3 ? Number(item.answer) : 0,
+                                createdAt: Date.now()
+                            }));
+
+                            const qCol = collection(db, 'artifacts', appId, 'public', 'data', 'questions');
+                            for(let item of generatedQuestions) {
+                                await addDoc(qCol, item);
+                            }
+                            
+                            setIsGenerating(false);
+                            setAiTopic('');
+                            showToast(`Berhasil menyimpan ${generatedQuestions.length} soal AI ke Database Firebase!`, "success");
+                            setActiveTeacherTab('bank');
+                            return;
+                        }
+                    }
+                    throw new Error("Respon AI tidak valid atau kosong.");
+                } catch (e) {
+                    console.error("AI Generation Error:", e);
+                    setIsGenerating(false);
+                    showToast("Gagal menghasilkan soal dari AI. Periksa koneksi atau coba beberapa saat lagi.", "error");
                 }
             };
 
@@ -403,6 +499,12 @@
                                 className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTeacherTab === 'bank' ? 'bg-brand-navy text-white shadow-md' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
                             >
                                 📚 Kelola Bank Soal ({subjectQuestions.length})
+                            </button>
+                            <button 
+                                onClick={() => setActiveTeacherTab('ai_generator')}
+                                className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all whitespace-nowrap flex items-center gap-2 ${activeTeacherTab === 'ai_generator' ? 'bg-purple-600 text-white shadow-md' : 'bg-purple-50 text-purple-700 hover:bg-purple-100'}`}
+                            >
+                                ✨ Generate Soal AI
                             </button>
                         </div>
 
@@ -451,6 +553,13 @@
                                 <Card className="space-y-4">
                                     <h2 className="text-xl font-bold flex items-center gap-2"><span>⚡</span> Aksi Cepat</h2>
                                     <div className="space-y-3">
+                                        <div onClick={() => setActiveTeacherTab('ai_generator')} className="p-4 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 font-medium cursor-pointer transition-colors flex items-center gap-3">
+                                            <span className="text-2xl">✨</span>
+                                            <div>
+                                                <div className="font-bold">Generate Soal AI</div>
+                                                <div className="text-xs opacity-75">Buat soal otomatis per jenjang</div>
+                                            </div>
+                                        </div>
                                         <div onClick={() => setActiveTeacherTab('bank')} className="p-4 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 font-medium cursor-pointer transition-colors flex items-center gap-3">
                                             <span className="text-2xl">📋</span>
                                             <div>
@@ -473,6 +582,100 @@
                             </div>
                         )}
 
+                        {activeTeacherTab === 'ai_generator' && (
+                            <div className="max-w-2xl mx-auto">
+                                <Card className="space-y-6">
+                                    <div className="border-b pb-4 flex justify-between items-center">
+                                        <div>
+                                            <h2 className="text-2xl font-bold text-brand-navy flex items-center gap-2"><span>✨</span> Generator Soal AI</h2>
+                                            <p className="text-slate-500 text-sm">Otomatis buat soal untuk <b>{selectedClass}</b> menggunakan Gemini</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <label className="text-xs font-bold text-slate-500 block mb-1">Target Kelas</label>
+                                            <select value={selectedClass} onChange={e => setSelectedClass(e.target.value)} className="p-2 border rounded-xl font-bold text-xs bg-white">
+                                                <option value="Kelas 7 (VII)">Kelas 7</option>
+                                                <option value="Kelas 8 (VIII)">Kelas 8</option>
+                                                <option value="Kelas 9 (IX)">Kelas 9</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-4">
+                                        <div className="bg-purple-50 p-4 rounded-xl border border-purple-100 mb-4">
+                                            <div className="flex justify-between items-center mb-1">
+                                                <label className="block text-xs font-bold text-purple-800 uppercase">Gemini API Key (Tersimpan di Cloud)</label>
+                                                {customApiKey && <span className="text-[10px] bg-green-500 text-white px-2 py-0.5 rounded-full font-bold">✅ Tersinkronisasi Global</span>}
+                                            </div>
+                                            <input 
+                                                type="password" 
+                                                value={customApiKey} 
+                                                onChange={e => {
+                                                    setCustomApiKey(e.target.value);
+                                                    localStorage.setItem('gemini_api_key', e.target.value);
+                                                }} 
+                                                onBlur={async (e) => {
+                                                    const newKey = e.target.value.trim();
+                                                    if(newKey && db) {
+                                                        try {
+                                                            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'gemini_config'), { 
+                                                                apiKey: newKey,
+                                                                updatedAt: Date.now()
+                                                            }, { merge: true });
+                                                            showToast("✅ API Key berhasil diamankan permanen ke Server Firebase!", "success");
+                                                        } catch(err) {
+                                                            console.error("Gagal save API key", err);
+                                                        }
+                                                    }
+                                                }}
+                                                placeholder="Paste API Key AIzaSy... (Klik di luar kotak untuk menyimpan otomatis)" 
+                                                className="w-full p-2.5 border border-purple-200 rounded-lg text-sm outline-none bg-white focus:border-purple-600 transition-colors" 
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-700 mb-1 uppercase">Topik / Materi Pembahasan</label>
+                                            <input 
+                                                type="text" 
+                                                value={aiTopic} 
+                                                onChange={e => setAiTopic(e.target.value)} 
+                                                placeholder="Contoh: Aljabar, Sistem Pencernaan, Teks Naratif..." 
+                                                className="w-full p-3 border rounded-xl text-sm outline-none bg-white focus:border-purple-600" 
+                                            />
+                                        </div>
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-xs font-bold text-slate-700 mb-1 uppercase">Jumlah Soal</label>
+                                                <select value={aiCount} onChange={e => setAiCount(Number(e.target.value))} className="w-full p-3 border rounded-xl text-sm outline-none bg-white">
+                                                    <option value={10}>10 Soal</option>
+                                                    <option value={20}>20 Soal</option>
+                                                    <option value={30}>30 Soal</option>
+                                                    <option value={40}>40 Soal</option>
+                                                    <option value={50}>50 Soal</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-bold text-slate-700 mb-1 uppercase">Level Kesulitan</label>
+                                                <select value={aiLevel} onChange={e => setAiLevel(e.target.value)} className="w-full p-3 border rounded-xl text-sm outline-none bg-white">
+                                                    <option value="Mudah">Mudah</option>
+                                                    <option value="Sedang">Sedang</option>
+                                                    <option value="Sulit">Sulit</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <Button 
+                                            onClick={handleGenerateAIQuestions} 
+                                            disabled={isGenerating} 
+                                            className="w-full py-4 bg-purple-600 hover:bg-purple-700 text-lg shadow-xl"
+                                        >
+                                            {isGenerating ? '⏳ Sedang Membuat Soal AI...' : `✨ Generate ${aiCount} Soal untuk ${selectedClass}`}
+                                        </Button>
+                                    </div>
+                                </Card>
+                            </div>
+                        )}
+
                         {activeTeacherTab === 'bank' && (
                             <div className="space-y-6">
                                 <Card className="space-y-4">
@@ -487,6 +690,7 @@
                                                 📁 Import CSV ({selectedClass})
                                                 <input type="file" accept=".csv" onChange={handleFileUpload} className="hidden" />
                                             </label>
+                                            <Button onClick={() => setActiveTeacherTab('ai_generator')} className="bg-purple-600 hover:bg-purple-700 text-sm py-2">✨ AI Generator</Button>
                                             <Button onClick={() => {
                                                 const modal = document.getElementById('manual-soal-modal');
                                                 if(modal) modal.classList.remove('hidden');
@@ -522,13 +726,15 @@
                                     <div className="space-y-3 max-h-[55vh] overflow-y-auto pr-2">
                                         {subjectQuestions
                                             .filter(q => bankClassFilter === 'Semua Kelas' || q.classLevel === bankClassFilter)
-                                            .filter(q => q.q.toLowerCase().includes(searchQuery.toLowerCase()))
+                                            .filter(q => q.q.toLowerCase().includes(searchQuery.toLowerCase()) || q.material.toLowerCase().includes(searchQuery.toLowerCase()))
                                             .map((q, idx) => (
                                                 <div key={q.id} className="p-4 bg-white border rounded-2xl shadow-sm hover:shadow transition-shadow flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                                                     <div className="space-y-1 flex-1">
                                                         <div className="flex items-center gap-2 flex-wrap">
                                                             <span className="bg-brand-navy text-white text-xs px-2.5 py-0.5 rounded-full font-bold">#{idx + 1}</span>
                                                             <span className="text-xs bg-brand-gold text-white px-2 py-0.5 rounded font-bold">{q.classLevel || 'Kelas 8 (VIII)'}</span>
+                                                            <span className="text-xs bg-teal-50 text-brand-teal px-2 py-0.5 rounded font-bold">{q.material}</span>
+                                                            <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-bold">{q.level}</span>
                                                         </div>
                                                         <div className="font-bold text-brand-navy mt-1">{q.q}</div>
                                                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-slate-600 mt-2">
@@ -557,7 +763,7 @@
                                                 </div>
                                             ))}
                                         {subjectQuestions.filter(q => bankClassFilter === 'Semua Kelas' || q.classLevel === bankClassFilter).length === 0 && (
-                                            <div className="text-center py-16 text-slate-400 font-medium">Belum ada soal pada kategori <b className="text-brand-navy">{bankClassFilter}</b>. Silakan gunakan <b>Tambah Soal</b> atau <b>Import CSV</b>.</div>
+                                            <div className="text-center py-16 text-slate-400 font-medium">Belum ada soal pada kategori <b className="text-brand-navy">{bankClassFilter}</b>.</div>
                                         )}
                                     </div>
                                 </Card>
@@ -578,13 +784,27 @@
                                 </div>
 
                                 <div className="space-y-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-700 mb-1">Jenjang Kelas</label>
+                                            <select value={selectedClass} onChange={e => setSelectedClass(e.target.value)} className="w-full p-3 border rounded-xl text-sm font-bold bg-white outline-none">
+                                                <option value="Kelas 7 (VII)">Kelas 7 (VII)</option>
+                                                <option value="Kelas 8 (VIII)">Kelas 8 (VIII)</option>
+                                                <option value="Kelas 9 (IX)">Kelas 9 (IX)</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-700 mb-1">Level Kesulitan</label>
+                                            <select value={manualLevel} onChange={e => setManualLevel(e.target.value)} className="w-full p-3 border rounded-xl text-sm outline-none bg-white">
+                                                <option value="Mudah">Mudah</option>
+                                                <option value="Sedang">Sedang</option>
+                                                <option value="Sulit">Sulit</option>
+                                            </select>
+                                        </div>
+                                    </div>
                                     <div>
-                                        <label className="block text-xs font-bold text-slate-700 mb-1">Jenjang Kelas</label>
-                                        <select value={selectedClass} onChange={e => setSelectedClass(e.target.value)} className="w-full p-3 border rounded-xl text-sm font-bold bg-white outline-none">
-                                            <option value="Kelas 7 (VII)">Kelas 7 (VII)</option>
-                                            <option value="Kelas 8 (VIII)">Kelas 8 (VIII)</option>
-                                            <option value="Kelas 9 (IX)">Kelas 9 (IX)</option>
-                                        </select>
+                                        <label className="block text-xs font-bold text-slate-700 mb-1">Materi / Bab</label>
+                                        <input type="text" value={manualMaterial} onChange={e => setManualMaterial(e.target.value)} placeholder="Contoh: Bab 1 Algoritma" className="w-full p-3 border rounded-xl text-sm outline-none bg-white" />
                                     </div>
                                     <div>
                                         <label className="block text-xs font-bold text-slate-700 mb-1">Pertanyaan</label>
@@ -625,33 +845,6 @@
             );
         }
 
-        class ErrorBoundary extends React.Component {
-            constructor(props) {
-                super(props);
-                this.state = { hasError: false, error: null };
-            }
-            static getDerivedStateFromError(error) {
-                return { hasError: true, error };
-            }
-            componentDidCatch(error, errorInfo) {
-                console.error("Uncaught app error:", error, errorInfo);
-            }
-            render() {
-                if (this.state.hasError) {
-                    return (
-                        <div style={{ padding: '40px', textAlign: 'center', fontFamily: 'Inter, sans-serif', background: '#0F172A', color: 'white', minHeight: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
-                            <div style={{ background: '#1E293B', padding: '30px', borderRadius: '16px', maxWidth: '500px', width: '100%', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}>
-                                <h2 style={{ fontSize: '22px', marginBottom: '12px', color: '#F59E0B' }}>Terjadi Kesalahan Sistem</h2>
-                                <p style={{ fontSize: '14px', color: '#94A3B8', marginBottom: '20px' }}>Aplikasi mengalami kendala tak terduga saat memuat state. Silakan muat ulang halaman.</p>
-                                <button onClick={() => { localStorage.clear(); window.location.reload(); }} style={{ background: '#0D9488', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Muat Ulang Aplikasi</button>
-                            </div>
-                        </div>
-                    );
-                }
-                return this.props.children;
-            }
-        }
-
         function ReactApp() {
             const { useState, useEffect, useMemo } = React;
 
@@ -668,7 +861,6 @@
             const [toast, setToast] = useState(null);
             const [loading, setLoading] = useState(true);
 
-            // Auth Modals
             const [adminModalOpen, setAdminModalOpen] = useState(false);
             const [adminUserLogin, setAdminUserLogin] = useState('');
             const [adminPassLogin, setAdminPassLogin] = useState('');
@@ -676,25 +868,22 @@
             const [teacherSelectedId, setTeacherSelectedId] = useState('');
             const [teacherPass, setTeacherPass] = useState('');
 
-            // Teachers List & Question Bank
             const [teachersList, setTeachersList] = useState([]);
-            const [masterQuestionBank, setMasterQuestionBank] = useState([]);
+            const [newTeacherName, setNewTeacherName] = useState('');
+            const [newTeacherSubject, setNewTeacherSubject] = useState('Informatika');
+            const [newTeacherPass, setNewTeacherPass] = useState('guru123');
 
+            const [masterQuestionBank, setMasterQuestionBank] = useState([]);
             const [selectedClass, setSelectedClass] = useState('Kelas 8 (VIII)');
             const [selectedBoardKey, setSelectedBoardKey] = useState('classic');
             const [isProcessing, setIsProcessing] = useState(false);
 
-            // Admin Settings States
             const [adminConfigUser, setAdminConfigUser] = useState('admin');
             const [adminConfigPass, setAdminConfigPass] = useState('');
 
-            // Student Join States
             const [joinCode, setJoinCode] = useState('');
             const [joinName, setJoinName] = useState('');
             const [selectedAvatar, setSelectedAvatar] = useState(null);
-            
-            // Question Modal Toggle State
-            const [showQuestionModal, setShowQuestionModal] = useState(true);
 
             const boardCells = useMemo(() => {
                 const grid = [];
@@ -757,7 +946,6 @@
             useEffect(() => {
                 const restoreSession = async () => {
                     if (!user || !db || currentView !== 'landing') return;
-                    
                     const savedRoomId = localStorage.getItem('mt14_roomId');
                     const savedRole = localStorage.getItem('mt14_role');
                     
@@ -768,7 +956,6 @@
                             
                             if (snap.exists()) {
                                 const rData = snap.data();
-                                
                                 if (savedRole === 'teacher' && rData.hostId === user.uid) {
                                     setRoomId(savedRoomId);
                                     setUserRole('teacher');
@@ -828,10 +1015,10 @@
                     if (loaded.length === 0 && !window.__isQuestionsSeeded) {
                         window.__isQuestionsSeeded = true;
                         const defaultQ = [
-                            { subject: 'Informatika', classLevel: 'Kelas 8 (VIII)', q: 'Apa fungsi utama RAM?', options: ['Penyimpanan Permanen', 'Penyimpanan Sementara', 'Pemrosesan Grafik', 'Koneksi Internet'], answer: 1 },
-                            { subject: 'Tahfidz', classLevel: 'Kelas 7 (VII)', q: 'Surah Al-Fatihah terdiri dari berapa ayat?', options: ['5 Ayat', '6 Ayat', '7 Ayat', '8 Ayat'], answer: 2 },
-                            { subject: 'PPKn', classLevel: 'Kelas 9 (IX)', q: 'Sila ke-3 Pancasila berbunyi?', options: ['Kemanusiaan yang adil dan beradab', 'Persatuan Indonesia', 'Keadilan sosial', 'Ketuhanan Yang Maha Esa'], answer: 1 },
-                            { subject: 'SKI', classLevel: 'Kelas 8 (VIII)', q: 'Siapakah khalifah pertama setelah Rasulullah wafat?', options: ['Umar bin Khattab', 'Usman bin Affan', 'Ali bin Abi Thalib', 'Abu Bakar Ash-Shiddiq'], answer: 3 }
+                            { subject: 'Informatika', classLevel: 'Kelas 8 (VIII)', material: 'Kurikulum Merdeka', level: 'Sedang', q: 'Apa fungsi utama RAM?', options: ['Penyimpanan Permanen', 'Penyimpanan Sementara', 'Pemrosesan Grafik', 'Koneksi Internet'], answer: 1 },
+                            { subject: 'Tahfidz', classLevel: 'Kelas 7 (VII)', material: 'Kurikulum Merdeka', level: 'Mudah', q: 'Surah Al-Fatihah terdiri dari berapa ayat?', options: ['5 Ayat', '6 Ayat', '7 Ayat', '8 Ayat'], answer: 2 },
+                            { subject: 'PPKn', classLevel: 'Kelas 9 (IX)', material: 'Kurikulum Merdeka', level: 'Sedang', q: 'Sila ke-3 Pancasila berbunyi?', options: ['Kemanusiaan yang adil dan beradab', 'Persatuan Indonesia', 'Keadilan sosial', 'Ketuhanan Yang Maha Esa'], answer: 1 },
+                            { subject: 'SKI', classLevel: 'Kelas 8 (VIII)', material: 'Kurikulum Merdeka', level: 'Sedang', q: 'Siapakah khalifah pertama setelah Rasulullah wafat?', options: ['Umar bin Khattab', 'Usman bin Affan', 'Ali bin Abi Thalib', 'Abu Bakar Ash-Shiddiq'], answer: 3 }
                         ];
                         const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'questions');
                         for (let q of defaultQ) { await addDoc(colRef, q); }
@@ -888,7 +1075,7 @@
                     let activeQuestions = filteredQuestions.length > 0 ? filteredQuestions : masterQuestionBank.filter(q => q.subject === teacherSubject);
                     if(activeQuestions.length === 0) activeQuestions = masterQuestionBank;
                     
-                    activeQuestions = [...activeQuestions].sort(() => 0.5 - Math.random());
+                    activeQuestions = [...activeQuestions].sort(() => 0.5 - Math.random()).slice(0, 50);
 
                     const chosenBoard = BOARD_LAYOUTS[selectedBoardKey] || BOARD_LAYOUTS.classic;
 
@@ -1026,7 +1213,7 @@
             const submitAnswer = async (answerIndex) => {
                 if (userRole !== 'student' || !roomData || isProcessing) return;
                 const myPlayer = roomData.players.find(p => p.id === user.uid);
-                if (!myPlayer) return;
+                if (!myPlayer || myPlayer.currentState !== 'answering') return;
                 
                 setIsProcessing(true);
                 try {
@@ -1035,31 +1222,28 @@
                     let updatedPlayers = [...snap.data().players];
                     const pIndex = updatedPlayers.findIndex(p => p.id === user.uid);
                     
-                    const questionsList = snap.data().questions || [];
-                    const qIndex = questionsList.length > 0 ? (updatedPlayers[pIndex].correct + updatedPlayers[pIndex].wrong) % questionsList.length : 0;
-                    const q = questionsList[qIndex] || { answer: 0 };
+                    const qIndex = (updatedPlayers[pIndex].correct + updatedPlayers[pIndex].wrong) % snap.data().questions.length;
+                    const q = snap.data().questions[qIndex] || snap.data().questions[0];
                     const isCorrect = answerIndex === q.answer;
                     
                     if (isCorrect) {
                         playSound('correct');
-                        showToast("Jawaban Benar! Silakan kocok dadu.", "success");
+                        showToast("Jawaban Benar! Tombol Kocok Dadu Telah Muncul.", "success");
                         updatedPlayers[pIndex].score += 100;
                         updatedPlayers[pIndex].correct += 1;
-                        updatedPlayers[pIndex].currentState = 'rolling';
+                        updatedPlayers[pIndex].currentState = 'rolling'; // Status berubah menjadi rolling sehingga tombol dadu muncul
                         await updateDoc(roomRef, { players: updatedPlayers });
                         setIsProcessing(false);
-                        setShowQuestionModal(false); // Sembunyikan modal otomatis agar tombol kocok dadu tampil
                     } else {
                         playSound('wrong');
                         showToast("Jawaban Salah! Coba soal berikutnya...", "error");
                         updatedPlayers[pIndex].wrong += 1;
-                        let newPos = updatedPlayers[pIndex].position - (snap.data().config?.wrongPenalty || 0);
+                        let newPos = updatedPlayers[pIndex].position - snap.data().config.wrongPenalty;
                         if(newPos < 1) newPos = 1;
                         updatedPlayers[pIndex].position = newPos;
                         await updateDoc(roomRef, { players: updatedPlayers });
                         setTimeout(() => {
                             setIsProcessing(false);
-                            setShowQuestionModal(false);
                         }, 1500);
                     }
                 } catch (e) {
@@ -1070,7 +1254,7 @@
             const rollDice = async () => {
                 if (userRole !== 'student' || !roomData || isProcessing) return;
                 const myPlayer = roomData.players.find(p => p.id === user.uid);
-                if (!myPlayer) return;
+                if (!myPlayer || myPlayer.currentState !== 'rolling') return;
                 
                 setIsProcessing(true);
                 playSound('dice');
@@ -1105,13 +1289,12 @@
                             let hitEvent = false;
                             let scoreModifier = 0;
 
-                            const boardDef = snap3.data().board || {};
-                            if (boardDef.snakes && boardDef.snakes[finalPos]) {
-                                finalPos = boardDef.snakes[finalPos];
+                            if (snap3.data().board.snakes[finalPos]) {
+                                finalPos = snap3.data().board.snakes[finalPos];
                                 hitEvent = 'snake';
                                 scoreModifier = -30;
-                            } else if (boardDef.ladders && boardDef.ladders[finalPos]) {
-                                finalPos = boardDef.ladders[finalPos];
+                            } else if (snap3.data().board.ladders[finalPos]) {
+                                finalPos = snap3.data().board.ladders[finalPos];
                                 hitEvent = 'ladder';
                                 scoreModifier = 50;
                             }
@@ -1128,8 +1311,7 @@
                                 playSound('correct');
                                 showToast("SELAMAT KAMU MENCAPAI FINISH!", "success");
                             } else {
-                                up3[pIdx3].currentState = 'answering';
-                                setShowQuestionModal(true); // Otomatis munculkan soal berikutnya setelah melangkah
+                                up3[pIdx3].currentState = 'answering'; // Kembali ke mode menjawab soal berikutnya
                             }
                             
                             await updateDoc(roomRef, { players: up3 });
@@ -1504,7 +1686,7 @@
                 const cellColors = currentBoardDef.cellColors || ['bg-rose-200', 'bg-amber-200', 'bg-emerald-200', 'bg-sky-200', 'bg-violet-200'];
 
                 return (
-                    <div className={`relative w-full max-w-2xl mx-auto shadow-2xl rounded-xl p-3 ${currentBoardDef.bgTheme || 'bg-white'}`}>
+                    <div className={`relative w-full max-w-xl mx-auto shadow-2xl rounded-xl p-3 ${currentBoardDef.bgTheme || 'bg-white'}`}>
                         <div className="mb-2 text-center font-bold text-xs opacity-75 uppercase tracking-wider">
                             Tema Papan: {currentBoardDef.name || 'Klasik'}
                         </div>
@@ -1600,7 +1782,7 @@
                                             transition: 'all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)'
                                         }}
                                     >
-                                        <span className="text-sm">{ava?.icon}</span>
+                                        <span className="text-xs">{ava?.icon}</span>
                                     </div>
                                 );
                             })}
@@ -1613,14 +1795,13 @@
                 if (!roomData) return null;
                 const isTeacher = userRole === 'teacher';
                 const myPlayer = isTeacher ? null : roomData.players.find(p => p.id === user?.uid);
-                
-                const questionsList = roomData.questions || [];
-                const qIndex = myPlayer && questionsList.length > 0 ? (myPlayer.correct + myPlayer.wrong) % questionsList.length : 0;
-                const currentQuestion = questionsList[qIndex] || questionsList[0] || { q: 'Pertanyaan tidak tersedia', options: ['A','B','C','D'], answer: 0 }; 
+                const qIndex = myPlayer ? (myPlayer.correct + myPlayer.wrong) % roomData.questions.length : 0;
+                const currentQuestion = roomData.questions[qIndex] || roomData.questions[0]; 
 
                 return (
                     <div className="min-h-screen bg-slate-100 flex flex-col md:flex-row">
-                        <div className="w-full md:w-80 bg-white border-r border-slate-200 flex flex-col h-screen max-h-screen">
+                        {/* Sidebar Klasemen */}
+                        <div className="w-full md:w-80 bg-white border-r border-slate-200 flex flex-col h-auto md:h-screen">
                             <div className="p-4 bg-brand-navy text-white">
                                 <div className="text-xs text-brand-gold font-bold mb-1">ROOM: {roomData.id}</div>
                                 <h2 className="font-display font-bold text-lg">Ular Tangga Serentak</h2>
@@ -1631,7 +1812,7 @@
                                 <span className="text-xs bg-white px-2 py-1 rounded shadow-sm">{roomData.players.length} Pemain</span>
                             </div>
                             
-                            <div className="flex-1 overflow-y-auto p-2 space-y-2">
+                            <div className="flex-1 overflow-y-auto p-2 space-y-2 max-h-64 md:max-h-none">
                                 {[...roomData.players].sort((a,b) => b.position - a.position || b.score - a.score).map((p, index) => {
                                     const ava = AVATARS.find(a => a.id === p.avatarId);
                                     const isMe = p.id === user?.uid;
@@ -1661,8 +1842,9 @@
                             </div>
                         </div>
 
-                        <div className="flex-1 p-4 md:p-8 flex flex-col h-screen overflow-y-auto">
-                            <div className="bg-white rounded-2xl p-4 shadow-sm mb-6 flex justify-between items-center flex-wrap gap-4">
+                        {/* Main Screen: Single Page Layout (Soal di Atas, Papan di Bawah) */}
+                        <div className="flex-1 p-4 md:p-6 flex flex-col h-screen overflow-y-auto">
+                            <div className="bg-white rounded-2xl p-4 shadow-sm mb-4 flex justify-between items-center flex-wrap gap-4">
                                 <div className="flex items-center gap-4">
                                     <div className="bg-brand-teal text-white w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold">
                                         {isTeacher ? '🚀' : myPlayer?.currentDice || '🎲'}
@@ -1670,65 +1852,55 @@
                                     <div>
                                         <div className="text-sm text-slate-500 font-bold uppercase">Status Permainan</div>
                                         <div className="text-lg font-bold text-brand-navy">
-                                            {isTeacher ? 'Mode Kontrol Guru (Live)' : myPlayer?.currentState === 'answering' ? 'Jawab Soal Pilihan Ganda...' : 'Kocok Dadu!'}
+                                            {isTeacher ? 'Mode Kontrol Guru (Live)' : myPlayer?.currentState === 'answering' ? 'Jawab Soal di Bawah Ini...' : 'Silakan Kocok Dadu!'}
                                         </div>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-3">
-                                    {!isTeacher && (
-                                        <Button 
-                                            onClick={() => setShowQuestionModal(true)} 
-                                            className="bg-brand-gold hover:bg-yellow-500 text-white shadow-lg py-2.5 px-5 text-sm font-bold flex items-center gap-2 animate-pulse"
-                                        >
-                                            📖 Munculkan / Jawab Soal
-                                        </Button>
-                                    )}
+                                <div>
                                     {isTeacher && (
                                         <Button variant="danger" className="py-2 text-sm" onClick={() => updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId), { status: 'finished' })}>Selesaikan Game</Button>
                                     )}
                                 </div>
                             </div>
 
-                            <div className="flex-1 flex items-center justify-center mb-6">
-                                {GameBoard({ roomData })}
-                            </div>
-
-                            {!isTeacher && myPlayer?.currentState === 'answering' && showQuestionModal && (
-                                <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand-navy bg-opacity-80 p-4 backdrop-blur-sm">
-                                    <div className="bg-white rounded-3xl p-8 max-w-xl w-full shadow-2xl relative">
-                                        <button 
-                                            onClick={() => setShowQuestionModal(false)}
-                                            className="absolute top-4 right-4 bg-slate-100 text-slate-600 hover:bg-slate-200 px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-sm flex items-center gap-2"
-                                        >
-                                            👁️ Sembunyikan Soal Sesaat
-                                        </button>
-                                        <div className="flex justify-between items-center mb-4 pr-32">
-                                            <span className="bg-brand-gold text-white text-xs font-bold px-3 py-1 rounded-full">SOAL PG MANDIRI #{qIndex + 1}</span>
-                                        </div>
-                                        <h3 className="text-xl font-bold text-brand-navy mb-6">{currentQuestion.q}</h3>
-                                        <div className="grid grid-cols-1 gap-3">
-                                            {(currentQuestion.options || []).map((opt, idx) => (
-                                                <button 
-                                                    key={idx}
-                                                    disabled={isProcessing}
-                                                    onClick={() => submitAnswer(idx)}
-                                                    className="p-4 border-2 rounded-xl text-left font-medium hover:border-brand-teal hover:bg-teal-50 transition-colors"
-                                                >
-                                                    <span className="font-bold mr-2 text-slate-400">{String.fromCharCode(65 + idx)}.</span> {opt}
-                                                </button>
-                                            ))}
-                                        </div>
+                            {/* SOAL DI HALAMAN UTAMA (Tanpa Modal Floating) */}
+                            {!isTeacher && myPlayer?.currentState === 'answering' && (
+                                <div className="bg-white rounded-2xl p-6 shadow-md border-2 border-brand-gold mb-6">
+                                    <div className="flex justify-between items-center mb-3">
+                                        <span className="bg-brand-gold text-white text-xs font-bold px-3 py-1 rounded-full">SOAL UJIAN MANDIRI #{qIndex + 1}</span>
+                                        <span className="text-xs font-bold text-slate-500">Benar: {myPlayer.correct} | Salah: {myPlayer.wrong}</span>
+                                    </div>
+                                    <h3 className="text-lg md:text-xl font-bold text-brand-navy mb-4">{currentQuestion.q}</h3>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        {currentQuestion.options.map((opt, idx) => (
+                                            <button 
+                                                key={idx}
+                                                disabled={isProcessing}
+                                                onClick={() => submitAnswer(idx)}
+                                                className="p-3.5 border-2 rounded-xl text-left font-medium hover:border-brand-teal hover:bg-teal-50 transition-all text-sm bg-slate-50"
+                                            >
+                                                <span className="font-bold mr-2 text-slate-400">{String.fromCharCode(65 + idx)}.</span> {opt}
+                                            </button>
+                                        ))}
                                     </div>
                                 </div>
                             )}
 
+                            {/* TOMBOL KOCOK DADU MUNCUL HANYA KETIKA SOAL DIJAWAB BENAR */}
                             {!isTeacher && myPlayer?.currentState === 'rolling' && (
-                                <div className="fixed bottom-10 left-0 w-full flex justify-center z-40 pb-4">
-                                    <Button onClick={rollDice} disabled={isProcessing} className="px-12 py-5 text-2xl animate-bounce-short shadow-xl border-4 border-white">
-                                        🎲 KOCOK DADU!
+                                <div className="bg-green-50 border-2 border-green-500 rounded-2xl p-6 shadow-lg mb-6 text-center animate-pulse">
+                                    <h3 className="text-lg font-bold text-green-800 mb-2">🎉 Jawaban Anda Benar!</h3>
+                                    <p className="text-sm text-green-600 mb-4">Silakan kocok dadu untuk melangkah di papan.</p>
+                                    <Button onClick={rollDice} disabled={isProcessing} className="mx-auto px-10 py-4 text-xl bg-green-600 hover:bg-green-700 text-white shadow-xl">
+                                        🎲 KOCOK DADU SEKARANG!
                                     </Button>
                                 </div>
                             )}
+
+                            {/* PAPAN ULAR TANGGA */}
+                            <div className="flex-1 flex items-center justify-center mb-6">
+                                {GameBoard({ roomData })}
+                            </div>
                         </div>
                     </div>
                 );
@@ -1775,14 +1947,7 @@
             };
 
             if (loading) {
-                return (
-                    <div className="min-h-screen flex items-center justify-center text-brand-navy font-bold text-2xl bg-slate-50">
-                        <div className="text-center">
-                            <div className="text-4xl mb-3 animate-spin">⏳</div>
-                            <div>Menghubungkan ke Server Firebase...</div>
-                        </div>
-                    </div>
-                );
+                return <div className="min-h-screen flex items-center justify-center text-brand-navy font-bold text-2xl">Memuat Sistem...</div>;
             }
 
             return (
@@ -1822,20 +1987,8 @@
             );
         }
 
-        try {
-            const rootElement = document.getElementById('root');
-            if (rootElement) {
-                const root = ReactDOM.createRoot(rootElement);
-                root.render(
-                    <ErrorBoundary>
-                        <ReactApp />
-                    </ErrorBoundary>
-                );
-            }
-        } catch (err) {
-            console.error("React mounting error:", err);
-            document.getElementById('root').innerHTML = '<div style="padding: 40px; text-align: center; color: red; font-family: sans-serif;"><h3>Terjadi kesalahan saat memuat aplikasi.</h3><p>Periksa konsol browser untuk detail error.</p></div>';
-        }
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<ReactApp />);
     </script>
 </body>
 </html>
