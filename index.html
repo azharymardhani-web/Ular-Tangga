@@ -1221,10 +1221,11 @@
 
             const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-            // FUNGSI BACKGROUND SYNC (Optimistic Update)
+            // FUNGSI BACKGROUND SYNC (Aman dari Tabrakan Data)
             const syncPlayerToDatabase = async (updatedPlayerObj) => {
                 try {
                     const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
+                    // Ambil data paling update sebelum menimpa agar tidak terjadi race condition
                     const snap = await getDoc(roomRef);
                     if(snap.exists()) {
                         const data = snap.data();
@@ -1232,7 +1233,7 @@
                         const pIndex = players.findIndex(p => p.id === updatedPlayerObj.id);
                         if(pIndex !== -1) {
                             players[pIndex] = updatedPlayerObj;
-                            // Menulis ke lokal cache langsung, sinkronisasi diam-diam di belakang layar
+                            // Update ke lokal cache (IndexedDB) & Firebase
                             await updateDoc(roomRef, { players: players });
                         }
                     }
@@ -1246,7 +1247,7 @@
                 const myPlayer = roomData.players.find(p => p.id === user.uid);
                 if (!myPlayer || myPlayer.currentState !== 'answering') return;
                 
-                setIsProcessing(true); // Lock tombol sesaat agar tidak double-click
+                setIsProcessing(true); 
                 
                 try {
                     const qList = roomData.questions || [];
@@ -1255,7 +1256,6 @@
                         return;
                     }
 
-                    // Logika Instan (Lokal): Tidak menunggu server
                     const qIndex = (myPlayer.correct + myPlayer.wrong) % qList.length;
                     const q = qList[qIndex];
                     const isCorrect = answerIndex === q.answer;
@@ -1277,8 +1277,8 @@
                         updatedPlayer.position = newPos;
                     }
 
-                    // Sinkronisasi Background (UI langsung berubah saat ini juga karena Firebase onSnapshot lokal)
-                    syncPlayerToDatabase(updatedPlayer);
+                    // AWAIT WAJIB: Menunggu data jawaban tersimpan sempurna sebelum membuka akses tombol lain
+                    await syncPlayerToDatabase(updatedPlayer);
 
                     if (!isCorrect) {
                          await sleep(1500); // Jeda agar siswa membaca salahnya sebelum soal diganti
@@ -1287,7 +1287,7 @@
                     console.error("Submit Answer Error:", e);
                     showToast("Terjadi gangguan, menyimpan progres secara lokal...", "info");
                 } finally {
-                    setIsProcessing(false); // Selalu bebaskan tombol
+                    setIsProcessing(false); 
                 }
             };
 
@@ -1303,7 +1303,7 @@
                     
                     // Tahap 1: Tampilkan angka dadu secara instan (Lokal)
                     let updatedPlayer = { ...myPlayer, currentDice: diceValue, currentState: 'moving' };
-                    syncPlayerToDatabase(updatedPlayer);
+                    await syncPlayerToDatabase(updatedPlayer); // <-- AWAIT DITAMBAHKAN
 
                     await sleep(1500); // Jeda visual dadu berputar
                     
@@ -1312,7 +1312,7 @@
                     if (newPos > 100) newPos = 100 - (newPos - 100); 
                     updatedPlayer.position = newPos;
                     
-                    syncPlayerToDatabase(updatedPlayer);
+                    await syncPlayerToDatabase(updatedPlayer); // <-- AWAIT DITAMBAHKAN
                     await sleep(1000); // Jeda pion berjalan di layar
 
                     // Tahap Ular / Tangga
@@ -1335,8 +1335,8 @@
                         updatedPlayer.position = finalPos;
                         updatedPlayer.score += scoreModifier;
                         showToast(hitEvent === 'ladder' ? 'Naik Tangga! +50 Poin' : 'Aduh Terkena Ular! -30 Poin', hitEvent === 'ladder' ? 'success' : 'error');
-                        syncPlayerToDatabase(updatedPlayer);
-                        await sleep(1000); // Jeda naik turun
+                        await syncPlayerToDatabase(updatedPlayer); // <-- AWAIT DITAMBAHKAN
+                        await sleep(1200); // Jeda naik turun
                     }
 
                     // Tahap Akhir (Kembali Jawab Soal atau Menang)
@@ -1348,11 +1348,11 @@
                     } else {
                         updatedPlayer.currentState = 'answering';
                     }
-                    syncPlayerToDatabase(updatedPlayer);
+                    await syncPlayerToDatabase(updatedPlayer); // <-- AWAIT DITAMBAHKAN
                     
                 } catch (e) {
                     console.error("Roll Dice Error:", e);
-                    showToast("Menyimpan pergerakan dadu di memori sementara...", "info");
+                    showToast("Gagal memproses pergerakan dadu. Coba lagi.", "error");
                 } finally {
                     setIsProcessing(false);
                 }
