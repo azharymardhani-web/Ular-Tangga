@@ -422,7 +422,7 @@
                 const apiKey = customApiKey.trim() || "";
                 const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
 
-                const systemPrompt = `Anda adalah seorang guru ahli pembuat soal ujian madrasah tsanawiyah (MTs) di Indonesia. Berdasarkan standar kompetensi Kurikulum Merdeka (KBC), buatlah tepat ${aiCount} buah soal Pilihan Ganda (PG) 4 opsi (A, B, C, D) berkualitas tinggi mata pelajaran ${assignedSubject} untuk tingkat ${selectedClass} dengan topik: "${aiTopic}". Tingkat kesulitan: ${aiLevel}.`;
+                const systemPrompt = `Anda adalah seorang guru ahli pembuat soal ujian madrasah tsanawiyah (MTs) di Indonesia. Berdasarkan standar kompetensi Kurikulum Merdeka, buatlah tepat ${aiCount} buah soal Pilihan Ganda (PG) 4 opsi (A, B, C, D) berkualitas tinggi mata pelajaran ${assignedSubject} untuk tingkat ${selectedClass} dengan topik: "${aiTopic}". Tingkat kesulitan: ${aiLevel}.`;
                 
                 const userQuery = `Berikan response dalam format JSON murni berupa array of objects tanpa markdown tambahan, dengan struktur:
                 [
@@ -595,7 +595,7 @@
                                     <div className="border-b pb-4 flex justify-between items-center">
                                         <div>
                                             <h2 className="text-2xl font-bold text-brand-navy flex items-center gap-2"><span>✨</span> Generator Soal AI</h2>
-                                            <p className="text-slate-500 text-sm">Otomatis buat soal untuk <b>{selectedClass}</b> menggunakan Gemini</p>
+                                            <p className="text-slate-500 text-sm">Otomatis buat soal Pilihan Ganda untuk <b>{selectedClass}</b> menggunakan Gemini</p>
                                         </div>
                                         <div className="text-right">
                                             <label className="text-xs font-bold text-slate-500 block mb-1">Target Kelas</label>
@@ -1275,7 +1275,7 @@
             const submitAnswer = async (answerIndex) => {
                 if (userRole !== 'student' || !roomData || isProcessing) return;
                 const myPlayer = roomData.players.find(p => p.id === user.uid);
-                if (!myPlayer || myPlayer.currentState !== 'answering') return;
+                if (!myPlayer) return;
                 
                 setIsProcessing(true);
                 try {
@@ -1318,7 +1318,7 @@
             const rollDice = async () => {
                 if (userRole !== 'student' || !roomData || isProcessing) return;
                 const myPlayer = roomData.players.find(p => p.id === user.uid);
-                if (!myPlayer || myPlayer.currentState !== 'rolling') return;
+                if (!myPlayer) return;
                 
                 setIsProcessing(true);
                 playSound('dice');
@@ -1950,12 +1950,12 @@
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                    {!isTeacher && myPlayer?.currentState === 'answering' && (
+                                    {!isTeacher && (
                                         <Button 
-                                            onClick={() => setHideQuestion(prev => !prev)} 
-                                            className={`shadow-lg py-2 text-sm ${hideQuestion ? 'bg-brand-gold hover:bg-yellow-500 text-white animate-pulse' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`}
+                                            onClick={() => setHideQuestion(false)} 
+                                            className="bg-brand-gold hover:bg-yellow-500 text-white shadow-lg py-2 text-sm font-bold flex items-center gap-2 animate-pulse"
                                         >
-                                            {hideQuestion ? '📝 Munculkan Soal Kembali' : '👁️ Sembunyikan Soal Sesaat'}
+                                            📖 Munculkan / Jawab Soal
                                         </Button>
                                     )}
                                     {isTeacher && (
@@ -1975,7 +1975,7 @@
                                             onClick={() => setHideQuestion(true)}
                                             className="absolute top-4 right-4 bg-slate-100 text-slate-600 hover:bg-slate-200 px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-sm flex items-center gap-2"
                                         >
-                                            👁️ Sembunyikan / Lihat Papan
+                                            👁️ Sembunyikan Soal Sesaat
                                         </button>
                                         <div className="flex justify-between items-center mb-4 pr-32">
                                             <span className="bg-brand-gold text-white text-xs font-bold px-3 py-1 rounded-full">SOAL PG MANDIRI #{qIndex + 1}</span>
