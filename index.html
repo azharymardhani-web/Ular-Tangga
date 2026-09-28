@@ -2067,8 +2067,16 @@
             );
         }
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<ReactApp />);
+        try {
+            const rootElement = document.getElementById('root');
+            if (rootElement) {
+                const root = ReactDOM.createRoot(rootElement);
+                root.render(<ReactApp />);
+            }
+        } catch (err) {
+            console.error("React mounting error:", err);
+            document.getElementById('root').innerHTML = '<div style="padding: 40px; text-align: center; color: red; font-family: sans-serif;"><h3>Terjadi kesalahan saat memuat aplikasi.</h3><p>Periksa konsol browser untuk detail error.</p></div>';
+        }
     </script>
 </body>
 </html>
