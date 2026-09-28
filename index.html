@@ -280,7 +280,7 @@
             selectedBoardKey,
             setSelectedBoardKey
         }) {
-            const { useState, useEffect } = React;
+            const { useState } = React;
             const assignedSubject = currentTeacher?.subject || "Informatika";
             
             const [activeTeacherTab, setActiveTeacherTab] = useState('create'); 
@@ -293,8 +293,6 @@
             const [manualOptC, setManualOptC] = useState('');
             const [manualOptD, setManualOptD] = useState('');
             const [manualAns, setManualAns] = useState(0);
-            const [manualLevel, setManualLevel] = useState('Sedang');
-            const [manualMaterial, setManualMaterial] = useState('Umum');
 
             const subjectQuestions = masterQuestionBank.filter(q => q.subject === assignedSubject);
 
@@ -328,7 +326,6 @@
                                 parsedList.push({
                                     subject: assignedSubject,
                                     classLevel: selectedClass,
-                                    material: 'Umum',
                                     q: row[0].replace(/^"|"$/g, ''),
                                     options: [
                                         row[1].replace(/^"|"$/g, ''),
@@ -337,7 +334,6 @@
                                         row[4].replace(/^"|"$/g, '')
                                     ],
                                     answer: parseInt(row[5]) || 0,
-                                    level: 'Sedang',
                                     createdAt: Date.now()
                                 });
                             }
@@ -366,8 +362,6 @@
                 const newQ = {
                     subject: assignedSubject,
                     classLevel: selectedClass,
-                    material: manualMaterial,
-                    level: manualLevel,
                     q: manualQ,
                     options: [manualOptA, manualOptB, manualOptC, manualOptD],
                     answer: Number(manualAns),
@@ -434,7 +428,7 @@
                                         </div>
 
                                         <div>
-                                            <label className="block text-slate-500 mb-1 font-medium">Pilih Desain / Tema Papan Ular Tangga (10 Pilihan)</label>
+                                            <label className="block text-slate-500 mb-1 font-medium">Pilih Desain / Tema Papan Ular Tangga</label>
                                             <select 
                                                 value={selectedBoardKey} 
                                                 onChange={e => setSelectedBoardKey(e.target.value)} 
@@ -528,15 +522,13 @@
                                     <div className="space-y-3 max-h-[55vh] overflow-y-auto pr-2">
                                         {subjectQuestions
                                             .filter(q => bankClassFilter === 'Semua Kelas' || q.classLevel === bankClassFilter)
-                                            .filter(q => q.q.toLowerCase().includes(searchQuery.toLowerCase()) || q.material.toLowerCase().includes(searchQuery.toLowerCase()))
+                                            .filter(q => q.q.toLowerCase().includes(searchQuery.toLowerCase()))
                                             .map((q, idx) => (
                                                 <div key={q.id} className="p-4 bg-white border rounded-2xl shadow-sm hover:shadow transition-shadow flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                                                     <div className="space-y-1 flex-1">
                                                         <div className="flex items-center gap-2 flex-wrap">
                                                             <span className="bg-brand-navy text-white text-xs px-2.5 py-0.5 rounded-full font-bold">#{idx + 1}</span>
                                                             <span className="text-xs bg-brand-gold text-white px-2 py-0.5 rounded font-bold">{q.classLevel || 'Kelas 8 (VIII)'}</span>
-                                                            <span className="text-xs bg-teal-50 text-brand-teal px-2 py-0.5 rounded font-bold">{q.material}</span>
-                                                            <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-bold">{q.level}</span>
                                                         </div>
                                                         <div className="font-bold text-brand-navy mt-1">{q.q}</div>
                                                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-slate-600 mt-2">
@@ -586,27 +578,13 @@
                                 </div>
 
                                 <div className="space-y-4">
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-xs font-bold text-slate-700 mb-1">Jenjang Kelas</label>
-                                            <select value={selectedClass} onChange={e => setSelectedClass(e.target.value)} className="w-full p-3 border rounded-xl text-sm font-bold bg-white outline-none">
-                                                <option value="Kelas 7 (VII)">Kelas 7 (VII)</option>
-                                                <option value="Kelas 8 (VIII)">Kelas 8 (VIII)</option>
-                                                <option value="Kelas 9 (IX)">Kelas 9 (IX)</option>
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-bold text-slate-700 mb-1">Level Kesulitan</label>
-                                            <select value={manualLevel} onChange={e => setManualLevel(e.target.value)} className="w-full p-3 border rounded-xl text-sm outline-none bg-white">
-                                                <option value="Mudah">Mudah</option>
-                                                <option value="Sedang">Sedang</option>
-                                                <option value="Sulit">Sulit</option>
-                                            </select>
-                                        </div>
-                                    </div>
                                     <div>
-                                        <label className="block text-xs font-bold text-slate-700 mb-1">Materi / Bab</label>
-                                        <input type="text" value={manualMaterial} onChange={e => setManualMaterial(e.target.value)} placeholder="Contoh: Bab 1 Algoritma" className="w-full p-3 border rounded-xl text-sm outline-none bg-white" />
+                                        <label className="block text-xs font-bold text-slate-700 mb-1">Jenjang Kelas</label>
+                                        <select value={selectedClass} onChange={e => setSelectedClass(e.target.value)} className="w-full p-3 border rounded-xl text-sm font-bold bg-white outline-none">
+                                            <option value="Kelas 7 (VII)">Kelas 7 (VII)</option>
+                                            <option value="Kelas 8 (VIII)">Kelas 8 (VIII)</option>
+                                            <option value="Kelas 9 (IX)">Kelas 9 (IX)</option>
+                                        </select>
                                     </div>
                                     <div>
                                         <label className="block text-xs font-bold text-slate-700 mb-1">Pertanyaan</label>
@@ -698,14 +676,8 @@
             const [teacherSelectedId, setTeacherSelectedId] = useState('');
             const [teacherPass, setTeacherPass] = useState('');
 
-            // Teachers List - Dimuat dari Firebase
+            // Teachers List & Question Bank
             const [teachersList, setTeachersList] = useState([]);
-            
-            const [newTeacherName, setNewTeacherName] = useState('');
-            const [newTeacherSubject, setNewTeacherSubject] = useState('Informatika');
-            const [newTeacherPass, setNewTeacherPass] = useState('guru123');
-
-            // Master Question Bank - Dimuat dari Firebase
             const [masterQuestionBank, setMasterQuestionBank] = useState([]);
 
             const [selectedClass, setSelectedClass] = useState('Kelas 8 (VIII)');
@@ -721,7 +693,8 @@
             const [joinName, setJoinName] = useState('');
             const [selectedAvatar, setSelectedAvatar] = useState(null);
             
-            const [hideQuestion, setHideQuestion] = useState(false);
+            // Question Modal Toggle State
+            const [showQuestionModal, setShowQuestionModal] = useState(true);
 
             const boardCells = useMemo(() => {
                 const grid = [];
@@ -808,7 +781,7 @@
                                         setUserRole('student');
                                         setPlayerData(myPlayer);
                                         setCurrentView(rData.status);
-                                        showToast("Sesi permainan berhasil dipulihkan! Melanjutkan progress...", "success");
+                                        showToast("Sesi permainan berhasil dipulihkan!", "success");
                                     } else {
                                         localStorage.removeItem('mt14_roomId');
                                         localStorage.removeItem('mt14_role');
@@ -855,10 +828,10 @@
                     if (loaded.length === 0 && !window.__isQuestionsSeeded) {
                         window.__isQuestionsSeeded = true;
                         const defaultQ = [
-                            { subject: 'Informatika', classLevel: 'Kelas 8 (VIII)', material: 'Kurikulum Merdeka', level: 'Sedang', q: 'Apa fungsi utama RAM?', options: ['Penyimpanan Permanen', 'Penyimpanan Sementara', 'Pemrosesan Grafik', 'Koneksi Internet'], answer: 1 },
-                            { subject: 'Tahfidz', classLevel: 'Kelas 7 (VII)', material: 'Kurikulum Merdeka', level: 'Mudah', q: 'Surah Al-Fatihah terdiri dari berapa ayat?', options: ['5 Ayat', '6 Ayat', '7 Ayat', '8 Ayat'], answer: 2 },
-                            { subject: 'PPKn', classLevel: 'Kelas 9 (IX)', material: 'Kurikulum Merdeka', level: 'Sedang', q: 'Sila ke-3 Pancasila berbunyi?', options: ['Kemanusiaan yang adil dan beradab', 'Persatuan Indonesia', 'Keadilan sosial', 'Ketuhanan Yang Maha Esa'], answer: 1 },
-                            { subject: 'SKI', classLevel: 'Kelas 8 (VIII)', material: 'Kurikulum Merdeka', level: 'Sedang', q: 'Siapakah khalifah pertama setelah Rasulullah wafat?', options: ['Umar bin Khattab', 'Usman bin Affan', 'Ali bin Abi Thalib', 'Abu Bakar Ash-Shiddiq'], answer: 3 }
+                            { subject: 'Informatika', classLevel: 'Kelas 8 (VIII)', q: 'Apa fungsi utama RAM?', options: ['Penyimpanan Permanen', 'Penyimpanan Sementara', 'Pemrosesan Grafik', 'Koneksi Internet'], answer: 1 },
+                            { subject: 'Tahfidz', classLevel: 'Kelas 7 (VII)', q: 'Surah Al-Fatihah terdiri dari berapa ayat?', options: ['5 Ayat', '6 Ayat', '7 Ayat', '8 Ayat'], answer: 2 },
+                            { subject: 'PPKn', classLevel: 'Kelas 9 (IX)', q: 'Sila ke-3 Pancasila berbunyi?', options: ['Kemanusiaan yang adil dan beradab', 'Persatuan Indonesia', 'Keadilan sosial', 'Ketuhanan Yang Maha Esa'], answer: 1 },
+                            { subject: 'SKI', classLevel: 'Kelas 8 (VIII)', q: 'Siapakah khalifah pertama setelah Rasulullah wafat?', options: ['Umar bin Khattab', 'Usman bin Affan', 'Ali bin Abi Thalib', 'Abu Bakar Ash-Shiddiq'], answer: 3 }
                         ];
                         const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'questions');
                         for (let q of defaultQ) { await addDoc(colRef, q); }
@@ -900,22 +873,6 @@
                 });
                 return () => unsubscribe();
             }, [user, roomId, userRole]);
-
-            useEffect(() => {
-                const fetchAdminData = async () => {
-                    if (!db || currentView !== 'admin_dash') return;
-                    try {
-                        const snap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'admin_config'));
-                        if(snap.exists()) {
-                            setAdminConfigUser(snap.data().username || 'admin');
-                            setAdminConfigPass(snap.data().password || 'admin123');
-                        } else {
-                            setAdminConfigPass('admin123');
-                        }
-                    } catch(e) { console.error("Error fetching admin data"); }
-                };
-                fetchAdminData();
-            }, [db, appId, currentView]);
 
             const createRoom = async () => {
                 if (!user) {
@@ -996,7 +953,7 @@
                         score: 0,
                         correct: 0,
                         wrong: 0,
-                        currentState: 'waiting'
+                        currentState: 'answering'
                     };
                     
                     const updatedPlayers = [...rData.players, newPlayer];
@@ -1091,7 +1048,7 @@
                         updatedPlayers[pIndex].currentState = 'rolling';
                         await updateDoc(roomRef, { players: updatedPlayers });
                         setIsProcessing(false);
-                        setHideQuestion(false);
+                        setShowQuestionModal(false); // Sembunyikan modal otomatis agar tombol kocok dadu tampil
                     } else {
                         playSound('wrong');
                         showToast("Jawaban Salah! Coba soal berikutnya...", "error");
@@ -1102,8 +1059,8 @@
                         await updateDoc(roomRef, { players: updatedPlayers });
                         setTimeout(() => {
                             setIsProcessing(false);
-                            setHideQuestion(false);
-                        }, 2000);
+                            setShowQuestionModal(false);
+                        }, 1500);
                     }
                 } catch (e) {
                     setIsProcessing(false);
@@ -1172,7 +1129,7 @@
                                 showToast("SELAMAT KAMU MENCAPAI FINISH!", "success");
                             } else {
                                 up3[pIdx3].currentState = 'answering';
-                                setHideQuestion(false);
+                                setShowQuestionModal(true); // Otomatis munculkan soal berikutnya setelah melangkah
                             }
                             
                             await updateDoc(roomRef, { players: up3 });
@@ -1528,36 +1485,6 @@
                                     </div>
                                 </Card>
                             </div>
-
-                            <Card className="cursor-default">
-                                <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><span>🛡️</span> Pengaturan Kredensial Admin</h2>
-                                <div className="bg-slate-50 p-5 rounded-xl border border-slate-200">
-                                    <p className="text-sm text-slate-500 mb-4">Ubah username dan password utama untuk mengakses Panel Super Admin.</p>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                        <div>
-                                            <label className="block text-sm font-bold text-slate-700 mb-1">Username Admin Baru</label>
-                                            <input type="text" value={adminConfigUser} onChange={e => setAdminConfigUser(e.target.value)} className="w-full p-3 border rounded-xl font-medium outline-none bg-white focus:border-brand-teal" />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-bold text-slate-700 mb-1">Password Admin Baru</label>
-                                            <input type="text" value={adminConfigPass} onChange={e => setAdminConfigPass(e.target.value)} className="w-full p-3 border rounded-xl font-medium outline-none bg-white focus:border-brand-teal" />
-                                        </div>
-                                    </div>
-                                    <Button onClick={async () => {
-                                        if(!adminConfigUser.trim() || !adminConfigPass.trim()) { showToast("Username dan Password tidak boleh kosong!", "error"); return; }
-                                        try {
-                                            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'admin_config'), {
-                                                username: adminConfigUser.trim(),
-                                                password: adminConfigPass.trim(),
-                                                updatedAt: Date.now()
-                                            }, { merge: true });
-                                            showToast("Kredensial Admin berhasil diperbarui!", "success");
-                                        } catch(e) {
-                                            showToast("Gagal menyimpan kredensial", "error");
-                                        }
-                                    }} className="bg-brand-navy hover:bg-slate-800 text-white">Simpan Perubahan Admin</Button>
-                                </div>
-                            </Card>
                         </div>
                     </div>
                 );
@@ -1750,7 +1677,7 @@
                                 <div className="flex items-center gap-3">
                                     {!isTeacher && (
                                         <Button 
-                                            onClick={() => setHideQuestion(false)} 
+                                            onClick={() => setShowQuestionModal(true)} 
                                             className="bg-brand-gold hover:bg-yellow-500 text-white shadow-lg py-2.5 px-5 text-sm font-bold flex items-center gap-2 animate-pulse"
                                         >
                                             📖 Munculkan / Jawab Soal
@@ -1766,11 +1693,11 @@
                                 {GameBoard({ roomData })}
                             </div>
 
-                            {!isTeacher && myPlayer?.currentState === 'answering' && !hideQuestion && (
+                            {!isTeacher && myPlayer?.currentState === 'answering' && showQuestionModal && (
                                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand-navy bg-opacity-80 p-4 backdrop-blur-sm">
                                     <div className="bg-white rounded-3xl p-8 max-w-xl w-full shadow-2xl relative">
                                         <button 
-                                            onClick={() => setHideQuestion(true)}
+                                            onClick={() => setShowQuestionModal(false)}
                                             className="absolute top-4 right-4 bg-slate-100 text-slate-600 hover:bg-slate-200 px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-sm flex items-center gap-2"
                                         >
                                             👁️ Sembunyikan Soal Sesaat
