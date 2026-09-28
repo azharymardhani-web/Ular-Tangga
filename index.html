@@ -811,10 +811,6 @@
             const [selectedClass, setSelectedClass] = useState('Kelas 8 (VIII)');
             const [isProcessing, setIsProcessing] = useState(false);
 
-            // Admin Settings States
-            const [adminConfigUser, setAdminConfigUser] = useState('admin');
-            const [adminConfigPass, setAdminConfigPass] = useState('');
-
             // Student Join States
             const [joinCode, setJoinCode] = useState('');
             const [joinName, setJoinName] = useState('');
@@ -993,23 +989,6 @@
                 });
                 return () => unsubscribe();
             }, [user, roomId]);
-
-            // Auto-fetch Admin Data
-            useEffect(() => {
-                const fetchAdminData = async () => {
-                    if (!db || currentView !== 'admin_dash') return;
-                    try {
-                        const snap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'admin_config'));
-                        if(snap.exists()) {
-                            setAdminConfigUser(snap.data().username || 'admin');
-                            setAdminConfigPass(snap.data().password || 'admin123');
-                        } else {
-                            setAdminConfigPass('admin123');
-                        }
-                    } catch(e) { console.error("Error fetching admin data"); }
-                };
-                fetchAdminData();
-            }, [db, appId, currentView]);
 
             const createRoom = async () => {
                 if (!user) {
@@ -1504,6 +1483,24 @@
             };
 
             const AdminDashboard = () => {
+                const [adminConfigUser, setAdminConfigUser] = useState('admin');
+                const [adminConfigPass, setAdminConfigPass] = useState('');
+
+                useEffect(() => {
+                    const fetchAdminData = async () => {
+                        try {
+                            const snap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'admin_config'));
+                            if(snap.exists()) {
+                                setAdminConfigUser(snap.data().username || 'admin');
+                                setAdminConfigPass(snap.data().password || 'admin123');
+                            } else {
+                                setAdminConfigPass('admin123');
+                            }
+                        } catch(e) { console.error("Error fetching admin data"); }
+                    };
+                    fetchAdminData();
+                }, []);
+
                 return (
                     <div className="min-h-screen bg-slate-50 p-6">
                         <div className="max-w-6xl mx-auto">
