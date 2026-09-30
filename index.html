@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MTsN 14 Jakarta - Digital Snake & Ladder</title>
     
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -39,7 +39,7 @@
     <style>
         body { background-color: #f8fafc; overflow-x: hidden; }
         .glass-panel {
-            background: rgba(255, 255, 255, 0.92);
+            background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.3);
             box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
@@ -62,7 +62,7 @@
             align-items: center;
             justify-content: center;
             font-weight: bold;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             color: rgba(0,0,0,0.35);
             position: relative;
         }
@@ -76,7 +76,7 @@
             justify-content: center;
             font-size: 1rem;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
             z-index: 10;
         }
         .offset-0 { transform: translate(-20%, -20%); z-index: 15; }
@@ -101,7 +101,7 @@
     <script type="text/babel" data-type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc, collection, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc, collection, addDoc, deleteDoc, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'mtsn14-snake-ladder-app';
         const firebaseConfig = {
@@ -119,6 +119,14 @@
             app = initializeApp(firebaseConfig);
             db = getFirestore(app);
             auth = getAuth(app);
+            
+            enableIndexedDbPersistence(db).catch((err) => {
+                if (err.code == 'failed-precondition') {
+                    console.warn("Multiple tabs open, offline mode enabled in only one.");
+                } else if (err.code == 'unimplemented') {
+                    console.warn("Browser doesn't support offline persistence.");
+                }
+            });
         } catch (e) {
             console.error("Firebase init failed", e);
         }
@@ -144,7 +152,7 @@
             { id: 'a12', name: 'Student Girl - Glasses', icon: '👩‍🏫', bg: 'bg-purple-400' },
             { id: 'a13', name: 'Student Girl - Scientist', icon: '👩‍🔬', bg: 'bg-cyan-500' },
             { id: 'a14', name: 'Student Girl - Programmer', icon: '👩‍💻', bg: 'bg-slate-600' },
-            { id: 'a15', name: 'Student Girl - Artist', icon: '👩‍🎨', bg: 'bg-rose-400' },
+            { id: 'a15', name: 'Student Girl - Artist', icon: '👩‍‍🎨', bg: 'bg-rose-400' },
             { id: 'a16', name: 'Student Girl - Sport', icon: '🏸', bg: 'bg-lime-500' },
             { id: 'a17', name: 'Robot Student', icon: '🤖', bg: 'bg-gray-400' },
             { id: 'a18', name: 'AI Assistant', icon: '👽', bg: 'bg-green-400' },
@@ -884,9 +892,6 @@
             const [joinName, setJoinName] = useState('');
             const [selectedAvatar, setSelectedAvatar] = useState(null);
 
-            // State untuk Collapse Panel Guru
-            const [isTeacherPanelOpen, setIsTeacherPanelOpen] = useState(false);
-
             const boardCells = useMemo(() => {
                 const grid = [];
                 for (let row = 9; row >= 0; row--) {
@@ -1101,7 +1106,7 @@
 
                     if(isCorrect) {
                         playSound('correct');
-                        showToast("Benar! Tombol dadu menyala.", "success");
+                        showToast("Benar! Tombol dadu terbuka.", "success");
                     } else {
                         playSound('wrong');
                         showToast("Salah! Coba soal berikutnya.", "error");
@@ -1109,7 +1114,7 @@
                 } catch (e) {
                     console.error(e);
                 } finally {
-                    await sleep(300);
+                    await sleep(800);
                     setIsProcessing(false);
                 }
             };
@@ -1130,7 +1135,7 @@
                         return player;
                     });
                     
-                    await sleep(600); 
+                    await sleep(1200); 
                     
                     finalPlayer = await syncPlayerToDatabase((player) => {
                         let newPos = Number(player.position) + diceValue;
@@ -1139,7 +1144,7 @@
                         return player;
                     });
                     
-                    await sleep(600); 
+                    await sleep(1000); 
                     
                     if(finalPlayer) {
                         let finalPos = Number(finalPlayer.position);
@@ -1173,7 +1178,7 @@
 
                         if (hitEvent) {
                             showToast(hitEvent === 'ladder' ? 'Naik Tangga! +50' : 'Kena Ular! -30', hitEvent === 'ladder' ? 'success' : 'error');
-                            await sleep(400);
+                            await sleep(800);
                         }
                         if (finalPos === 100) {
                             playSound('correct');
@@ -1311,16 +1316,16 @@
                 const cellColors = currentBoardDef.cellColors || ['bg-rose-200', 'bg-amber-200', 'bg-emerald-200', 'bg-sky-200', 'bg-violet-200'];
 
                 return (
-                    <div className={`relative w-full aspect-square max-w-lg mx-auto shadow-2xl rounded-xl p-3 ${currentBoardDef.bgTheme || 'bg-white'}`}>
+                    <div className={`relative w-full aspect-square max-w-xl mx-auto shadow-2xl rounded-xl p-3 ${currentBoardDef.bgTheme || 'bg-white'}`}>
                         <div className="mb-2 text-center font-bold text-xs opacity-75 uppercase tracking-wider hidden md:block">
                             Tema Papan: {currentBoardDef.name || 'Klasik'}
                         </div>
                         <div className="board-grid">
                             {boardCells.map((c) => (
                                 <div key={c.num} className={`board-cell ${cellColors[c.num % cellColors.length]} relative border border-white/40 shadow-inner`}>
-                                    <span className="absolute top-1 left-1 text-[9px] sm:text-xs font-bold opacity-75">{c.num}</span>
-                                    {c.num === 1 && <span className="absolute bottom-1 right-1 text-[8px] font-bold bg-white/70 px-1 rounded text-black hidden sm:block">START</span>}
-                                    {c.num === 100 && <span className="absolute top-1 right-1 text-[8px] font-bold bg-white/70 px-1 rounded text-black hidden sm:block">FINISH</span>}
+                                    <span className="absolute top-1 left-1 text-[10px] sm:text-xs font-bold opacity-75">{c.num}</span>
+                                    {c.num === 1 && <span className="absolute bottom-1 right-1 text-[9px] font-bold bg-white/70 px-1 rounded text-black hidden sm:block">START</span>}
+                                    {c.num === 100 && <span className="absolute top-1 right-1 text-[9px] font-bold bg-white/70 px-1 rounded text-black hidden sm:block">FINISH</span>}
                                 </div>
                             ))}
 
@@ -1386,7 +1391,7 @@
                                         style={{
                                             left: `${(coord.col * 10) + 1}%`, top: `${(coord.row * 10) + 1}%`,
                                             width: '8%', height: '8%',
-                                            transition: 'transform 0.3s ease-out, left 0.3s ease-out, top 0.3s ease-out'
+                                            transition: 'all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)'
                                         }}
                                     >
                                         <span className="text-xs">{ava?.icon}</span>
@@ -1451,49 +1456,39 @@
 
                         <div className="flex-1 p-4 md:p-6 flex flex-col h-screen overflow-y-auto">
                             {isTeacher && (
-                                <div className="bg-white rounded-2xl shadow-sm mb-6 border-t-4 border-brand-teal overflow-hidden">
-                                    <div 
-                                        onClick={() => setIsTeacherPanelOpen(!isTeacherPanelOpen)}
-                                        className="p-4 bg-slate-50 flex justify-between items-center cursor-pointer hover:bg-slate-100 transition-colors"
-                                    >
+                                <div className="bg-white rounded-2xl p-6 shadow-sm mb-6 border-t-4 border-brand-teal">
+                                    <div className="flex justify-between items-center mb-4">
                                         <div>
-                                            <h3 className="text-lg font-bold text-brand-navy">Panel Kendali Guru</h3>
-                                            <p className="text-xs text-slate-500">Klik untuk {isTeacherPanelOpen ? 'sembunyikan' : 'tampilkan'} daftar kontrol siswa</p>
+                                            <h3 className="text-xl font-bold text-brand-navy">Panel Kendali Guru</h3>
+                                            <p className="text-sm text-slate-500">Pantau dan kelola aktivitas siswa secara langsung.</p>
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            <Button variant="danger" className="text-xs py-1.5 px-3" onClick={(e) => { e.stopPropagation(); updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId), { status: 'finished' }); }}>Selesaikan Ujian</Button>
-                                            <span className="text-xl font-bold text-slate-400">{isTeacherPanelOpen ? '▲' : '▼'}</span>
-                                        </div>
+                                        <Button variant="danger" onClick={() => updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId), { status: 'finished' })}>Selesaikan Ujian</Button>
                                     </div>
                                     
-                                    {isTeacherPanelOpen && (
-                                        <div className="p-6 space-y-4 border-t">
-                                            <div className="flex gap-3">
-                                                <button 
-                                                    onClick={() => updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId), { 'config.isPaused': !isGamePaused })}
-                                                    className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${isGamePaused ? 'bg-green-500 text-white' : 'bg-amber-100 text-amber-700 hover:bg-amber-200'}`}
-                                                >
-                                                    {isGamePaused ? '▶️ Lanjutkan Permainan' : '⏸️ Jeda Permainan (Pause)'}
-                                                </button>
-                                            </div>
+                                    <div className="flex gap-3 mb-6">
+                                        <button 
+                                            onClick={() => updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId), { 'config.isPaused': !isGamePaused })}
+                                            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${isGamePaused ? 'bg-green-500 text-white' : 'bg-amber-100 text-amber-700 hover:bg-amber-200'}`}
+                                        >
+                                            {isGamePaused ? '▶️ Lanjutkan Permainan' : '⏸️ Jeda Permainan (Pause)'}
+                                        </button>
+                                    </div>
 
-                                            <h4 className="font-bold text-slate-700 text-sm">Tindakan Khusus per Siswa:</h4>
-                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                                {roomData.players.map(p => (
-                                                    <div key={p.id} className="p-3 border rounded-xl flex items-center justify-between bg-slate-50">
-                                                        <div className="truncate pr-2">
-                                                            <div className="text-sm font-bold text-brand-navy truncate">{p.name}</div>
-                                                            <div className="text-[10px] text-slate-500">Status: {p.currentState}</div>
-                                                        </div>
-                                                        <div className="flex flex-col gap-1 flex-shrink-0">
-                                                            <button onClick={() => resetPlayerPosition(p.id)} className="text-[10px] bg-white border border-slate-300 px-2 py-1 rounded hover:bg-slate-100 font-bold">Reset Pion</button>
-                                                            <button onClick={() => kickPlayer(p.id)} className="text-[10px] bg-red-50 text-red-600 px-2 py-1 rounded hover:bg-red-100 font-bold">Keluarkan</button>
-                                                        </div>
-                                                    </div>
-                                                ))}
+                                    <h4 className="font-bold text-slate-700 text-sm mb-3">Tindakan Khusus per Siswa:</h4>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                        {roomData.players.map(p => (
+                                            <div key={p.id} className="p-3 border rounded-xl flex items-center justify-between bg-slate-50">
+                                                <div className="truncate pr-2">
+                                                    <div className="text-sm font-bold text-brand-navy truncate">{p.name}</div>
+                                                    <div className="text-[10px] text-slate-500">Status: {p.currentState}</div>
+                                                </div>
+                                                <div className="flex flex-col gap-1 flex-shrink-0">
+                                                    <button onClick={() => resetPlayerPosition(p.id)} className="text-[10px] bg-white border border-slate-300 px-2 py-1 rounded hover:bg-slate-100 font-bold">Reset Pion</button>
+                                                    <button onClick={() => kickPlayer(p.id)} className="text-[10px] bg-red-50 text-red-600 px-2 py-1 rounded hover:bg-red-100 font-bold">Keluarkan</button>
+                                                </div>
                                             </div>
-                                        </div>
-                                    )}
+                                        ))}
+                                    </div>
                                 </div>
                             )}
 
@@ -1505,7 +1500,6 @@
                                         </div>
                                     )}
 
-                                    {/* KOTAK SOAL DI ATAS PAPAN (FIXED LAYOUT) */}
                                     <div className="bg-white rounded-2xl p-4 md:p-6 shadow-sm border-2 border-slate-200 relative">
                                         <div className="flex justify-between items-center mb-3">
                                             <span className="bg-brand-navy text-white text-[10px] font-bold px-3 py-1 rounded-full">PERTANYAAN #{qIndex + 1}</span>
@@ -1541,11 +1535,10 @@
                                         )}
                                     </div>
 
-                                    {/* TOMBOL KOCOK DADU TERPISAH DI BAWAH SOAL */}
                                     <div className={`rounded-2xl p-4 shadow-sm border flex items-center justify-between transition-all duration-300 ${isRollingReady ? 'bg-green-50 border-green-300' : 'bg-slate-50 border-slate-200'}`}>
                                         <div>
                                             <h4 className={`font-bold ${isRollingReady ? 'text-green-800' : 'text-slate-500'}`}>Giliran Dadu</h4>
-                                            <p className="text-xs text-slate-400 hidden sm:block">Jawab pertanyaan dengan benar untuk mengaktifkan tombol dadu.</p>
+                                            <p className="text-xs text-slate-400 hidden sm:block">Jawab pertanyaan dengan benar untuk membuka kunci.</p>
                                         </div>
                                         <button
                                             onClick={rollDice}
@@ -1585,13 +1578,13 @@
                         </Card>
                         
                         <Card className="flex-1 text-center hover:-translate-y-2 transition-transform border-t-4 border-t-brand-gold" onClick={() => setTeacherModalOpen(true)}>
-                            <div className="text-4xl mb-4">👨‍‍🏫</div>
+                            <div className="text-4xl mb-4">👨‍🏫</div>
                             <h2 className="text-2xl font-bold text-brand-navy mb-2">Guru</h2>
                             <p className="text-slate-500 text-sm">Kelola Kelas & Game</p>
                         </Card>
 
                         <Card className="flex-1 text-center hover:-translate-y-2 transition-transform border-t-4 border-t-purple-600" onClick={() => setAdminModalOpen(true)}>
-                            <div className="text-4xl mb-4">🛡️️</div>
+                            <div className="text-4xl mb-4">🛡️</div>
                             <h2 className="text-2xl font-bold text-brand-navy mb-2">Admin</h2>
                             <p className="text-slate-500 text-sm">Panel Kontrol Utama</p>
                         </Card>
@@ -1684,78 +1677,41 @@
                 </div>
             );
 
-            const StudentJoinUI = () => {
-                const [activeRoomPlayers, setActiveRoomPlayers] = useState([]);
-                
-                // Real-time check avatar yang sudah dipilih di room
-                useEffect(() => {
-                    if (!joinCode || joinCode.length < 4 || !db) {
-                        setActiveRoomPlayers([]);
-                        return;
-                    }
-                    let rCode = joinCode.toUpperCase().trim();
-                    if (!rCode.startsWith('MT14-')) rCode = 'MT14-' + rCode;
-                    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', rCode);
-                    const unsub = onSnapshot(roomRef, (snap) => {
-                        if (snap.exists()) {
-                            setActiveRoomPlayers(snap.data().players || []);
-                        } else {
-                            setActiveRoomPlayers([]);
-                        }
-                    }, () => setActiveRoomPlayers([]));
-                    return () => unsub();
-                }, [joinCode, db]);
-
-                const takenAvatarIds = activeRoomPlayers.map(p => p.avatarId);
-
-                return (
-                    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
-                        <div className="max-w-md w-full bg-white rounded-3xl p-8 shadow-xl border border-slate-200">
-                            <div className="text-center mb-6">
-                                <h1 className="text-3xl font-display font-bold text-brand-navy mb-1">Gabung Game Siswa</h1>
-                                <p className="text-slate-500 text-sm">Masukkan kode room dan pilih avatar unikmu</p>
+            const StudentJoinUI = () => (
+                <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
+                    <div className="max-w-md w-full bg-white rounded-3xl p-8 shadow-xl border border-slate-200">
+                        <div className="text-center mb-6">
+                            <h1 className="text-3xl font-display font-bold text-brand-navy mb-1">Gabung Game Siswa</h1>
+                            <p className="text-slate-500 text-sm">Masukkan kode room dan pilih avatar unikmu</p>
+                        </div>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-bold text-slate-700 mb-1 uppercase">Kode Room (Contoh: G7X2)</label>
+                                <input type="text" value={joinCode} onChange={e => setJoinCode(e.target.value)} placeholder="MT14-...." className="w-full p-3 border-2 rounded-xl uppercase font-bold text-brand-navy outline-none focus:border-brand-teal" />
                             </div>
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-700 mb-1 uppercase">Kode Room (Contoh: G7X2)</label>
-                                    <input type="text" value={joinCode} onChange={e => setJoinCode(e.target.value)} placeholder="MT14-...." className="w-full p-3 border-2 rounded-xl uppercase font-bold text-brand-navy outline-none focus:border-brand-teal" />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-700 mb-1 uppercase">Nama Lengkap</label>
-                                    <input type="text" value={joinName} onChange={e => setJoinName(e.target.value)} placeholder="Nama siswa..." className="w-full p-3 border-2 rounded-xl font-medium outline-none focus:border-brand-teal" />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-700 mb-2 uppercase">Pilih Avatar Unikmu {takenAvatarIds.length > 0 && <span className="text-brand-teal font-normal lowercase">({takenAvatarIds.length} avatar terpilih)</span>}</label>
-                                    <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto p-2 border rounded-xl bg-slate-50">
-                                        {AVATARS.map(av => {
-                                            const isTaken = takenAvatarIds.includes(av.id);
-                                            const isSelected = selectedAvatar === av.id;
-                                            return (
-                                                <div 
-                                                    key={av.id} 
-                                                    onClick={() => {
-                                                        if (!isTaken) setSelectedAvatar(av.id);
-                                                    }} 
-                                                    className={`p-3 rounded-xl flex flex-col items-center justify-center transition-all relative ${isTaken ? 'opacity-40 bg-slate-200 cursor-not-allowed grayscale' : isSelected ? 'ring-4 ring-brand-gold bg-white shadow-md scale-105 cursor-pointer' : 'hover:bg-white bg-slate-100 cursor-pointer'}`}
-                                                >
-                                                    <span className="text-2xl">{av.icon}</span>
-                                                    <span className="text-[10px] text-slate-600 font-bold truncate w-full text-center mt-1">{av.name}</span>
-                                                    {isTaken && <span className="absolute inset-0 flex items-center justify-center text-[10px] font-black text-red-600 bg-black bg-opacity-10 rounded-xl rotate-[-12deg]">DIPAKAI</span>}
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                                <Button onClick={() => {
-                                    if(!joinCode.trim() || !joinName.trim() || !selectedAvatar) { showToast("Isi form dengan lengkap!", "error"); return; }
-                                    joinRoom(joinCode, joinName, selectedAvatar);
-                                }} className="w-full py-4 text-lg">Masuk Game 🚀</Button>
-                                <Button variant="outline" onClick={() => setCurrentView('landing')} className="w-full">Kembali</Button>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-700 mb-1 uppercase">Nama Lengkap</label>
+                                <input type="text" value={joinName} onChange={e => setJoinName(e.target.value)} placeholder="Nama siswa..." className="w-full p-3 border-2 rounded-xl font-medium outline-none focus:border-brand-teal" />
                             </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-700 mb-2 uppercase">Pilih Avatar Unikmu</label>
+                                <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto p-2 border rounded-xl bg-slate-50">
+                                    {AVATARS.map(av => (
+                                        <div key={av.id} onClick={() => setSelectedAvatar(av.id)} className={`p-3 rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all ${selectedAvatar === av.id ? 'ring-4 ring-brand-gold bg-white shadow-md scale-105' : 'hover:bg-white bg-slate-100'}`}>
+                                            <span className="text-2xl">{av.icon}</span><span className="text-[10px] text-slate-600 font-bold truncate w-full text-center mt-1">{av.name}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            <Button onClick={() => {
+                                if(!joinCode.trim() || !joinName.trim() || !selectedAvatar) { showToast("Isi form dengan lengkap!", "error"); return; }
+                                joinRoom(joinCode, joinName, selectedAvatar);
+                            }} className="w-full py-4 text-lg">Masuk Game 🚀</Button>
+                            <Button variant="outline" onClick={() => setCurrentView('landing')} className="w-full">Kembali</Button>
                         </div>
                     </div>
-                );
-            };
+                </div>
+            );
 
             const LobbyUI = () => {
                 if (!roomData) return null;
@@ -1973,7 +1929,7 @@
                     {currentView === 'teacher_dash' && <TeacherDashboard currentTeacher={currentTeacher} masterQuestionBank={masterQuestionBank} setMasterQuestionBank={setMasterQuestionBank} selectedClass={selectedClass} setSelectedClass={setSelectedClass} createRoom={createRoom} setCurrentView={setCurrentView} showToast={showToast} db={db} appId={appId} selectedBoardKey={selectedBoardKey} setSelectedBoardKey={setSelectedBoardKey} />}
                     {currentView === 'admin_dash' && <AdminDashboard />}
                     {currentView === 'join_room' && StudentJoinUI()}
-                    {currentView === 'lobby' && <LobbyUI />}
+                    {currentView === 'lobby' && LobbyUI()}
                     {currentView === 'playing' && <GamePlay />}
                     {currentView === 'finished' && <ResultScreen />}
                 </div>
