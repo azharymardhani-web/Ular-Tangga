@@ -511,14 +511,26 @@
                                     className="p-4 bg-slate-50 flex justify-between items-center cursor-pointer hover:bg-slate-100 transition-colors"
                                 >
                                     <div>
-                                        <h3 className="font-bold text-brand-navy flex items-center gap-2">
-                                            <span>⚙️</span> Panel Kendali Guru (Klik untuk {teacherPanelOpen ? 'Sembunyikan' : 'Tampilkan'})
+                                        <h3 className="font-bold text-brand-navy flex items-center gap-2 text-sm sm:text-base">
+                                            <span>⚙️</span> Panel Kendali (Klik untuk {teacherPanelOpen ? 'Tutup' : 'Buka'})
                                         </h3>
-                                        <p className="text-xs text-slate-500">Kelola jeda ujian, reset pion, atau akhiri permainan.</p>
+                                        <p className="text-[10px] sm:text-xs text-slate-500 hidden sm:block">Kelola jeda ujian, reset pion, atau akhiri permainan.</p>
                                     </div>
-                                    <div className="flex items-center gap-3">
-                                        <Button variant="danger" onClick={async (e) => { e.stopPropagation(); await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomData.id), { status: 'finished' }); }} className="text-xs py-1.5 px-3">Selesaikan Ujian</Button>
-                                        <span className="text-xl">{teacherPanelOpen ? '▲' : '▼'}</span>
+                                    <div className="flex items-center gap-2">
+                                        <button 
+                                            onClick={(e) => { e.stopPropagation(); handleLeaveRoom(); }} 
+                                            className="text-[10px] sm:text-xs py-1.5 px-3 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-full transition-colors flex items-center gap-1"
+                                        >
+                                            ⬅ Dashboard
+                                        </button>
+                                        <Button 
+                                            variant="danger" 
+                                            onClick={async (e) => { e.stopPropagation(); await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomData.id), { status: 'finished' }); }} 
+                                            className="text-[10px] sm:text-xs py-1.5 px-3"
+                                        >
+                                            Selesaikan Ujian
+                                        </Button>
+                                        <span className="text-xl ml-1">{teacherPanelOpen ? '▲' : '▼'}</span>
                                     </div>
                                 </div>
 
