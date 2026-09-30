@@ -120,7 +120,6 @@
             db = getFirestore(app);
             auth = getAuth(app);
             
-            // AKTIFKAN PENYIMPANAN SEMENTARA BROWSER (OFFLINE CAPABILITY)
             enableIndexedDbPersistence(db).catch((err) => {
                 if (err.code == 'failed-precondition') {
                     console.warn("Multiple tabs open, offline mode enabled in only one.");
@@ -153,7 +152,7 @@
             { id: 'a12', name: 'Student Girl - Glasses', icon: '👩‍🏫', bg: 'bg-purple-400' },
             { id: 'a13', name: 'Student Girl - Scientist', icon: '👩‍🔬', bg: 'bg-cyan-500' },
             { id: 'a14', name: 'Student Girl - Programmer', icon: '👩‍💻', bg: 'bg-slate-600' },
-            { id: 'a15', name: 'Student Girl - Artist', icon: '👩‍🎨', bg: 'bg-rose-400' },
+            { id: 'a15', name: 'Student Girl - Artist', icon: '👩‍‍🎨', bg: 'bg-rose-400' },
             { id: 'a16', name: 'Student Girl - Sport', icon: '🏸', bg: 'bg-lime-500' },
             { id: 'a17', name: 'Robot Student', icon: '🤖', bg: 'bg-gray-400' },
             { id: 'a18', name: 'AI Assistant', icon: '👽', bg: 'bg-green-400' },
@@ -319,7 +318,7 @@
                         setCustomApiKey(snap.data().apiKey);
                         localStorage.setItem('gemini_api_key', snap.data().apiKey);
                     }
-                }, (err) => console.error("Gagal sinkron API Key:", err));
+                }, (err) => console.error("Gagal sinkron API Key dari server:", err));
                 return () => unsub();
             }, [db, appId]);
 
@@ -434,7 +433,7 @@
                     "answer": 0
                   }
                 ]
-                Di mana "answer" adalah indeks jawaban benar dari 0 sampai 3 (0 untuk A, 1 untuk B, 2 untuk C, 3 untuk D).`;
+                Di mana "answer" adalah indeks jawaban benar dari 0 sampai 3 (0 untuk A, 1 untuk B, 2 untuk C, 3 untuk D). Jangan sertakan dummy atau fallback; buatlah murni dari materi yang diminta.`;
 
                 const payload = {
                     contents: [{ parts: [{ text: userQuery }] }],
@@ -539,7 +538,7 @@
                                         </div>
 
                                         <div>
-                                            <label className="block text-slate-500 mb-1 font-medium">Pilih Desain / Tema Papan Ular Tangga</label>
+                                            <label className="block text-slate-500 mb-1 font-medium">Pilih Desain / Tema Papan Ular Tangga (10 Pilihan)</label>
                                             <select 
                                                 value={selectedBoardKey} 
                                                 onChange={e => setSelectedBoardKey(e.target.value)} 
@@ -639,6 +638,7 @@
                                                 placeholder="Paste API Key AIzaSy... (Klik di luar kotak untuk menyimpan otomatis)" 
                                                 className="w-full p-2.5 border border-purple-200 rounded-lg text-sm outline-none bg-white focus:border-purple-600 transition-colors" 
                                             />
+                                            <p className="text-[10px] text-purple-600 mt-1 font-medium">Semua akun Guru akan menggunakan API Key ini secara bersama-sama. Dapatkan key di <a href="https://aistudio.google.com/app/apikey" target="_blank" className="underline font-bold">Google AI Studio</a>.</p>
                                         </div>
 
                                         <div>
@@ -772,7 +772,7 @@
                                                 </div>
                                             ))}
                                         {subjectQuestions.filter(q => bankClassFilter === 'Semua Kelas' || q.classLevel === bankClassFilter).length === 0 && (
-                                            <div className="text-center py-16 text-slate-400 font-medium">Belum ada soal pada kategori <b className="text-brand-navy">{bankClassFilter}</b>.</div>
+                                            <div className="text-center py-16 text-slate-400 font-medium">Belum ada soal pada kategori <b className="text-brand-navy">{bankClassFilter}</b>. Silakan gunakan <b>✨ Generate Soal AI</b> atau <b>Tambah Soal</b>.</div>
                                         )}
                                     </div>
                                 </Card>
@@ -848,7 +848,6 @@
                                 </div>
                             </div>
                         </div>
-
                     </div>
                 </div>
             );
@@ -866,9 +865,9 @@
             const [playerData, setPlayerData] = useState(null); 
             
             const [currentTeacher, setCurrentTeacher] = useState(null);
-            
             const [toast, setToast] = useState(null);
             const [loading, setLoading] = useState(true);
+            const [isProcessing, setIsProcessing] = useState(false);
 
             const [adminModalOpen, setAdminModalOpen] = useState(false);
             const [adminUserLogin, setAdminUserLogin] = useState('');
@@ -885,7 +884,6 @@
             const [masterQuestionBank, setMasterQuestionBank] = useState([]);
             const [selectedClass, setSelectedClass] = useState('Kelas 8 (VIII)');
             const [selectedBoardKey, setSelectedBoardKey] = useState('classic');
-            const [isProcessing, setIsProcessing] = useState(false);
 
             const [adminConfigUser, setAdminConfigUser] = useState('admin');
             const [adminConfigPass, setAdminConfigPass] = useState('');
@@ -927,10 +925,7 @@
             };
 
             useEffect(() => {
-                if(!auth) {
-                    setLoading(false);
-                    return;
-                }
+                if(!auth) { setLoading(false); return; }
                 const initAuth = async () => {
                     const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
                     try {
@@ -957,19 +952,16 @@
                     if (!user || !db || currentView !== 'landing') return;
                     const savedRoomId = localStorage.getItem('mt14_roomId');
                     const savedRole = localStorage.getItem('mt14_role');
-                    
                     if (savedRoomId && savedRole) {
                         try {
                             const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', savedRoomId);
                             const snap = await getDoc(roomRef);
-                            
                             if (snap.exists()) {
                                 const rData = snap.data();
                                 if (savedRole === 'teacher' && rData.hostId === user.uid) {
                                     setRoomId(savedRoomId);
                                     setUserRole('teacher');
                                     setCurrentView(rData.status);
-                                    showToast("Sesi mengajar berhasil dipulihkan!", "info");
                                 } else if (savedRole === 'student') {
                                     const myPlayer = rData.players.find(p => p.id === user.uid);
                                     if (myPlayer) {
@@ -977,7 +969,6 @@
                                         setUserRole('student');
                                         setPlayerData(myPlayer);
                                         setCurrentView(rData.status);
-                                        showToast("Sesi permainan berhasil dipulihkan!", "success");
                                     } else {
                                         localStorage.removeItem('mt14_roomId');
                                         localStorage.removeItem('mt14_role');
@@ -987,9 +978,7 @@
                                 localStorage.removeItem('mt14_roomId');
                                 localStorage.removeItem('mt14_role');
                             }
-                        } catch (e) {
-                            console.error("Gagal memulihkan sesi", e);
-                        }
+                        } catch (e) { console.error("Restore failed", e); }
                     }
                 };
                 restoreSession();
@@ -997,11 +986,9 @@
 
             useEffect(() => {
                 if (!user || !db) return;
-                
                 const unsubTeachers = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'teachers'), async (snap) => {
                     const loaded = [];
                     snap.forEach(d => loaded.push({ id: d.id, ...d.data() }));
-                    
                     if (loaded.length === 0 && !window.__isTeacherSeeded) {
                         window.__isTeacherSeeded = true;
                         const defaults = [
@@ -1015,19 +1002,16 @@
                         window.__isTeacherSeeded = true;
                         setTeachersList(loaded);
                     }
-                }, (err) => console.error("Sync teachers err:", err));
+                });
 
                 const unsubQuestions = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'questions'), async (snap) => {
                     const loaded = [];
                     snap.forEach(d => loaded.push({ id: d.id, ...d.data() }));
-                    
                     if (loaded.length === 0 && !window.__isQuestionsSeeded) {
                         window.__isQuestionsSeeded = true;
                         const defaultQ = [
-                            { subject: 'Informatika', classLevel: 'Kelas 8 (VIII)', material: 'Kurikulum Merdeka', level: 'Sedang', q: 'Apa fungsi utama RAM?', options: ['Penyimpanan Permanen', 'Penyimpanan Sementara', 'Pemrosesan Grafik', 'Koneksi Internet'], answer: 1 },
-                            { subject: 'Tahfidz', classLevel: 'Kelas 7 (VII)', material: 'Kurikulum Merdeka', level: 'Mudah', q: 'Surah Al-Fatihah terdiri dari berapa ayat?', options: ['5 Ayat', '6 Ayat', '7 Ayat', '8 Ayat'], answer: 2 },
-                            { subject: 'PPKn', classLevel: 'Kelas 9 (IX)', material: 'Kurikulum Merdeka', level: 'Sedang', q: 'Sila ke-3 Pancasila berbunyi?', options: ['Kemanusiaan yang adil dan beradab', 'Persatuan Indonesia', 'Keadilan sosial', 'Ketuhanan Yang Maha Esa'], answer: 1 },
-                            { subject: 'SKI', classLevel: 'Kelas 8 (VIII)', material: 'Kurikulum Merdeka', level: 'Sedang', q: 'Siapakah khalifah pertama setelah Rasulullah wafat?', options: ['Umar bin Khattab', 'Usman bin Affan', 'Ali bin Abi Thalib', 'Abu Bakar Ash-Shiddiq'], answer: 3 }
+                            { subject: 'Informatika', classLevel: 'Kelas 8 (VIII)', material: 'Umum', level: 'Sedang', q: 'Apa fungsi utama RAM?', options: ['Penyimpanan Permanen', 'Penyimpanan Sementara', 'Pemrosesan Grafik', 'Koneksi Internet'], answer: 1 },
+                            { subject: 'Tahfidz', classLevel: 'Kelas 7 (VII)', material: 'Umum', level: 'Mudah', q: 'Surah Al-Fatihah terdiri dari berapa ayat?', options: ['5 Ayat', '6 Ayat', '7 Ayat', '8 Ayat'], answer: 2 },
                         ];
                         const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'questions');
                         for (let q of defaultQ) { await addDoc(colRef, q); }
@@ -1035,8 +1019,7 @@
                         window.__isQuestionsSeeded = true;
                         setMasterQuestionBank(loaded);
                     }
-                }, (err) => console.error("Sync questions err:", err));
-
+                });
                 return () => { unsubTeachers(); unsubQuestions(); };
             }, [user]);
 
@@ -1051,7 +1034,7 @@
                         if (userRole === 'student' && rData.status !== 'finished') {
                             const isStillInRoom = rData.players.some(p => p.id === user.uid);
                             if (!isStillInRoom) {
-                                showToast("Anda telah keluar atau dikeluarkan dari ruangan.", "error");
+                                showToast("Anda telah dikeluarkan dari ruangan.", "error");
                                 setRoomId(null);
                                 setRoomData(null);
                                 setPlayerData(null);
@@ -1061,20 +1044,156 @@
                             }
                         }
                     } else {
-                        showToast("Room tidak ditemukan atau telah ditutup", "error");
+                        showToast("Room telah ditutup oleh Guru.", "error");
                         handleLeaveRoom();
                     }
-                }, (error) => {
-                    console.error("Firestore snapshot error:", error);
-                });
+                }, (error) => console.error("Room Sync Error:", error));
                 return () => unsubscribe();
             }, [user, roomId, userRole]);
 
-            const createRoom = async () => {
-                if (!user) {
-                    showToast("Sistem belum terhubung ke server.", "error");
-                    return;
+            const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+            const syncPlayerToDatabase = async (modifierFunc) => {
+                if (!user || !roomId || !db) return null;
+                try {
+                    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
+                    const snap = await getDoc(roomRef);
+                    if (snap.exists()) {
+                        const data = snap.data();
+                        const players = [...data.players];
+                        const pIndex = players.findIndex(p => p.id === user.uid);
+                        if (pIndex !== -1) {
+                            players[pIndex] = modifierFunc({ ...players[pIndex] });
+                            await updateDoc(roomRef, { players: players });
+                            return players[pIndex];
+                        }
+                    }
+                } catch(e) {
+                    console.error("Gagal sinkron data ke server", e);
                 }
+                return null;
+            };
+
+            const submitAnswer = async (answerIndex) => {
+                if (userRole !== 'student' || !roomData || isProcessing) return;
+                const myPlayer = roomData.players.find(p => p.id === user.uid);
+                if (!myPlayer || myPlayer.currentState !== 'answering' || roomData.config?.isPaused) return;
+                
+                setIsProcessing(true);
+                try {
+                    const qList = roomData.questions || [];
+                    if(qList.length === 0) {
+                        setIsProcessing(false);
+                        return;
+                    }
+
+                    const qIndex = (Number(myPlayer.correct) + Number(myPlayer.wrong)) % Math.max(1, qList.length);
+                    const q = qList[qIndex];
+                    const isCorrect = answerIndex === q.answer;
+                    
+                    await syncPlayerToDatabase((player) => {
+                        if (isCorrect) {
+                            player.score = Number(player.score) + 100;
+                            player.correct = Number(player.correct) + 1;
+                            player.currentState = 'rolling'; 
+                        } else {
+                            player.wrong = Number(player.wrong) + 1;
+                            let newPos = Number(player.position) - Number(roomData.config.wrongPenalty || 0);
+                            player.position = newPos < 1 ? 1 : newPos;
+                        }
+                        return player;
+                    });
+
+                    if(isCorrect) {
+                        playSound('correct');
+                        showToast("Benar! Tombol dadu terbuka.", "success");
+                    } else {
+                        playSound('wrong');
+                        showToast("Salah! Coba soal berikutnya.", "error");
+                    }
+                } catch (e) {
+                    console.error(e);
+                } finally {
+                    await sleep(800);
+                    setIsProcessing(false);
+                }
+            };
+
+            const rollDice = async () => {
+                if (userRole !== 'student' || !roomData || isProcessing) return;
+                const myPlayer = roomData.players.find(p => p.id === user.uid);
+                if (!myPlayer || myPlayer.currentState !== 'rolling' || roomData.config?.isPaused) return;
+                
+                setIsProcessing(true);
+                try {
+                    playSound('dice');
+                    const diceValue = Math.floor(Math.random() * 6) + 1;
+                    
+                    let finalPlayer = await syncPlayerToDatabase((player) => {
+                        player.currentDice = diceValue;
+                        player.currentState = 'moving';
+                        return player;
+                    });
+                    
+                    await sleep(1200); 
+                    
+                    finalPlayer = await syncPlayerToDatabase((player) => {
+                        let newPos = Number(player.position) + diceValue;
+                        if (newPos > 100) newPos = 100 - (newPos - 100);
+                        player.position = newPos;
+                        return player;
+                    });
+                    
+                    await sleep(1000); 
+                    
+                    if(finalPlayer) {
+                        let finalPos = Number(finalPlayer.position);
+                        let hitEvent = false;
+                        let scoreMod = 0;
+                        const board = roomData.board || BOARD_LAYOUTS.classic;
+
+                        if (board.snakes && board.snakes[finalPos]) {
+                            finalPos = board.snakes[finalPos];
+                            hitEvent = 'snake';
+                            scoreMod = -30;
+                        } else if (board.ladders && board.ladders[finalPos]) {
+                            finalPos = board.ladders[finalPos];
+                            hitEvent = 'ladder';
+                            scoreMod = 50;
+                        }
+
+                        await syncPlayerToDatabase((player) => {
+                            if (hitEvent) {
+                                player.position = finalPos;
+                                player.score = Number(player.score) + scoreMod;
+                            }
+                            if (Number(player.position) === 100) {
+                                player.score = Number(player.score) + 500;
+                                player.currentState = 'finished';
+                            } else {
+                                player.currentState = 'answering'; 
+                            }
+                            return player;
+                        });
+
+                        if (hitEvent) {
+                            showToast(hitEvent === 'ladder' ? 'Naik Tangga! +50' : 'Kena Ular! -30', hitEvent === 'ladder' ? 'success' : 'error');
+                            await sleep(800);
+                        }
+                        if (finalPos === 100) {
+                            playSound('correct');
+                            showToast("SELAMAT MENCAPAI FINISH!", "success");
+                        }
+                    }
+                } catch(e) {
+                    console.error("Roll dice error", e);
+                } finally {
+                    setIsProcessing(false);
+                }
+            };
+
+            const createRoom = async () => {
+                if (!user) { showToast("Sistem belum terhubung ke server.", "error"); return; }
                 try {
                     const newRoomId = 'MT14-' + Math.random().toString(36).substring(2, 6).toUpperCase();
                     const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', newRoomId);
@@ -1083,90 +1202,51 @@
                     const filteredQuestions = masterQuestionBank.filter(q => q.subject === teacherSubject && q.classLevel === selectedClass);
                     let activeQuestions = filteredQuestions.length > 0 ? filteredQuestions : masterQuestionBank.filter(q => q.subject === teacherSubject);
                     if(activeQuestions.length === 0) activeQuestions = masterQuestionBank;
-                    
                     activeQuestions = [...activeQuestions].sort(() => 0.5 - Math.random()).slice(0, 50);
 
                     const chosenBoard = BOARD_LAYOUTS[selectedBoardKey] || BOARD_LAYOUTS.classic;
 
-                    const initialRoomData = {
+                    await setDoc(roomRef, {
                         id: newRoomId,
                         status: 'lobby',
                         hostId: user.uid,
-                        config: { timer: 30, wrongPenalty: 0, maxPlayers: 32, subject: teacherSubject, classLevel: selectedClass, boardName: chosenBoard.name },
+                        config: { isPaused: false, wrongPenalty: 0, maxPlayers: 32, subject: teacherSubject, classLevel: selectedClass, boardName: chosenBoard.name },
                         board: chosenBoard,
                         questions: activeQuestions,
                         players: [],
                         createdAt: Date.now()
-                    };
-
-                    await setDoc(roomRef, initialRoomData);
+                    });
+                    
                     setRoomId(newRoomId);
                     setUserRole('teacher');
                     setCurrentView('lobby');
-                    
                     localStorage.setItem('mt14_roomId', newRoomId);
                     localStorage.setItem('mt14_role', 'teacher');
-                } catch (e) {
-                    showToast("Gagal membuat room: " + e.message, "error");
-                }
+                } catch (e) { showToast("Gagal membuat room", "error"); }
             };
 
             const joinRoom = async (code, playerName, avatarId) => {
-                if (!user) {
-                    showToast("Sistem belum terhubung ke server.", "error");
-                    return;
-                }
+                if (!user) return;
                 let rCode = code.toUpperCase().trim();
-                if (!rCode.startsWith('MT14-') && rCode.length >= 4) {
-                    rCode = 'MT14-' + rCode;
-                }
+                if (!rCode.startsWith('MT14-') && rCode.length >= 4) rCode = 'MT14-' + rCode;
                 const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', rCode);
                 try {
                     const snap = await getDoc(roomRef);
-                    if (!snap.exists()) {
-                        showToast(`Room ${rCode} tidak ditemukan!`, "error");
-                        return;
-                    }
+                    if (!snap.exists()) { showToast(`Room ${rCode} tidak ditemukan!`, "error"); return; }
                     const rData = snap.data();
-                    if (rData.status !== 'lobby') {
-                        showToast("Permainan sudah dimulai!", "error");
-                        return;
-                    }
-                    if (rData.players.length >= 32) {
-                        showToast("Room sudah penuh (Maks 32)", "error");
-                        return;
-                    }
-                    if (rData.players.some(p => p.avatarId === avatarId)) {
-                        showToast("Avatar sudah dipilih pemain lain!", "error");
-                        return;
-                    }
+                    if (rData.status !== 'lobby') { showToast("Permainan sudah dimulai!", "error"); return; }
+                    if (rData.players.length >= 32) { showToast("Room sudah penuh", "error"); return; }
+                    if (rData.players.some(p => p.avatarId === avatarId)) { showToast("Avatar sudah dipakai!", "error"); return; }
 
                     const newPlayer = {
-                        id: user.uid,
-                        name: playerName,
-                        avatarId: avatarId,
-                        position: 0, 
-                        score: 0,
-                        correct: 0,
-                        wrong: 0,
-                        currentState: 'answering'
+                        id: user.uid, name: playerName, avatarId: avatarId,
+                        position: 0, score: 0, correct: 0, wrong: 0, currentState: 'waiting'
                     };
-                    
-                    const updatedPlayers = [...rData.players, newPlayer];
-                    await updateDoc(roomRef, { players: updatedPlayers });
+                    await updateDoc(roomRef, { players: [...rData.players, newPlayer] });
 
-                    setRoomId(rCode);
-                    setUserRole('student');
-                    setPlayerData(newPlayer);
-                    setCurrentView('lobby');
-                    
-                    localStorage.setItem('mt14_roomId', rCode);
-                    localStorage.setItem('mt14_role', 'student');
-                    showToast("Berhasil bergabung ke ruangan!", "success");
-
-                } catch (e) {
-                    showToast("Terjadi kesalahan saat bergabung: " + e.message, "error");
-                }
+                    setRoomId(rCode); setUserRole('student'); setPlayerData(newPlayer); setCurrentView('lobby');
+                    localStorage.setItem('mt14_roomId', rCode); localStorage.setItem('mt14_role', 'student');
+                } catch (e) { showToast("Gagal bergabung", "error"); }
             };
 
             const handleLeaveRoom = async () => {
@@ -1175,21 +1255,13 @@
                         const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
                         const snap = await getDoc(roomRef);
                         if (snap.exists()) {
-                            const updatedPlayers = snap.data().players.filter(p => p.id !== user.uid);
-                            await updateDoc(roomRef, { players: updatedPlayers });
+                            await updateDoc(roomRef, { players: snap.data().players.filter(p => p.id !== user.uid) });
                         }
-                    } catch (e) {
-                        console.error("Gagal menghapus data siswa saat keluar", e);
-                    }
+                    } catch (e) {}
                 }
-                
-                setRoomId(null);
-                setRoomData(null);
-                setPlayerData(null);
+                setRoomId(null); setRoomData(null); setPlayerData(null); 
                 setCurrentView(userRole === 'teacher' ? 'teacher_dash' : userRole === 'admin' ? 'admin_dash' : 'landing');
-                
-                localStorage.removeItem('mt14_roomId');
-                localStorage.removeItem('mt14_role');
+                localStorage.removeItem('mt14_roomId'); localStorage.removeItem('mt14_role');
             };
 
             const kickPlayer = async (playerId) => {
@@ -1198,167 +1270,303 @@
                     const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
                     const snap = await getDoc(roomRef);
                     if (snap.exists()) {
-                        const updatedPlayers = snap.data().players.filter(p => p.id !== playerId);
-                        await updateDoc(roomRef, { players: updatedPlayers });
-                        showToast("Siswa berhasil dikeluarkan dari ruangan.", "info");
+                        await updateDoc(roomRef, { players: snap.data().players.filter(p => p.id !== playerId) });
                     }
-                } catch (e) {
-                    showToast("Gagal mengeluarkan siswa", "error");
-                }
+                } catch (e) { }
+            };
+            
+            const resetPlayerPosition = async (playerId) => {
+                if (userRole !== 'teacher' || !roomId) return;
+                try {
+                    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
+                    const snap = await getDoc(roomRef);
+                    if (snap.exists()) {
+                        let players = [...snap.data().players];
+                        let pIndex = players.findIndex(p => p.id === playerId);
+                        if(pIndex !== -1) {
+                            players[pIndex].position = 1;
+                            players[pIndex].currentState = 'answering';
+                            await updateDoc(roomRef, { players: players });
+                            showToast("Posisi siswa direset ke awal", "info");
+                        }
+                    }
+                } catch (e) { }
             };
 
             const startGame = async () => {
                 if (userRole !== 'teacher' || !roomData) return;
                 const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
                 const startingPlayers = roomData.players.map(p => ({
-                    ...p, 
-                    position: 1,
-                    currentState: 'answering', 
-                    currentDice: null
+                    ...p, position: 1, currentState: 'answering', currentDice: null
                 }));
                 await updateDoc(roomRef, { status: 'playing', players: startingPlayers });
             };
 
-            const sleep = ms => new Promise(r => setTimeout(r, ms));
+            const GameBoard = ({ roomData }) => {
+                const getCellCoords = (cellNum) => {
+                    if (cellNum < 1 || cellNum > 100) return {x:0, y:0};
+                    const row = Math.floor((cellNum - 1) / 10);
+                    const isEvenRow = row % 2 === 0;
+                    const col = (cellNum - 1) % 10;
+                    const actualCol = isEvenRow ? col : 9 - col;
+                    return { row: 9 - row, col: actualCol };
+                };
 
-            const syncPlayerToDatabase = async (updatedPlayerObj) => {
-                try {
-                    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
-                    const snap = await getDoc(roomRef);
-                    if(snap.exists()) {
-                        const data = snap.data();
-                        const players = [...data.players];
-                        const pIndex = players.findIndex(p => p.id === updatedPlayerObj.id);
-                        if(pIndex !== -1) {
-                            players[pIndex] = updatedPlayerObj;
-                            await updateDoc(roomRef, { players: players });
-                        }
-                    }
-                } catch (e) {
-                    console.log("Koneksi buruk: Data disimpan sementara di Browser (Offline Mode)");
-                }
+                const currentBoardDef = roomData.board || BOARD_LAYOUTS.classic;
+                const cellColors = currentBoardDef.cellColors || ['bg-rose-200', 'bg-amber-200', 'bg-emerald-200', 'bg-sky-200', 'bg-violet-200'];
+
+                return (
+                    <div className={`relative w-full aspect-square max-w-xl mx-auto shadow-2xl rounded-xl p-3 ${currentBoardDef.bgTheme || 'bg-white'}`}>
+                        <div className="mb-2 text-center font-bold text-xs opacity-75 uppercase tracking-wider hidden md:block">
+                            Tema Papan: {currentBoardDef.name || 'Klasik'}
+                        </div>
+                        <div className="board-grid">
+                            {boardCells.map((c) => (
+                                <div key={c.num} className={`board-cell ${cellColors[c.num % cellColors.length]} relative border border-white/40 shadow-inner`}>
+                                    <span className="absolute top-1 left-1 text-[10px] sm:text-xs font-bold opacity-75">{c.num}</span>
+                                    {c.num === 1 && <span className="absolute bottom-1 right-1 text-[9px] font-bold bg-white/70 px-1 rounded text-black hidden sm:block">START</span>}
+                                    {c.num === 100 && <span className="absolute top-1 right-1 text-[9px] font-bold bg-white/70 px-1 rounded text-black hidden sm:block">FINISH</span>}
+                                </div>
+                            ))}
+
+                            <svg viewBox="0 0 100 100" className="absolute top-0 left-0 w-full h-full pointer-events-none drop-shadow-lg" style={{ zIndex: 5 }}>
+                                {Object.entries(currentBoardDef.ladders || {}).map(([start, end]) => {
+                                    const sCoord = getCellCoords(parseInt(start));
+                                    const eCoord = getCellCoords(end);
+                                    const sX = (sCoord.col * 10) + 5; const sY = (sCoord.row * 10) + 5;
+                                    const eX = (eCoord.col * 10) + 5; const eY = (eCoord.row * 10) + 5;
+                                    const dx = eX - sX; const dy = eY - sY;
+                                    const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+                                    const length = Math.sqrt(dx*dx + dy*dy);
+                                    return (
+                                        <g key={`l-${start}`} transform={`translate(${sX} ${sY}) rotate(${angle})`}>
+                                            <line x1="0" y1="-2" x2={length} y2="-2" stroke="#92400e" strokeWidth="1" strokeLinecap="round" />
+                                            <line x1="0" y1="2" x2={length} y2="2" stroke="#92400e" strokeWidth="1" strokeLinecap="round" />
+                                            {Array.from({length: Math.floor(length / 2.5)}).map((_, i) => (
+                                                <line key={`rung-${i}`} x1={(i+1)*2.5} y1="-2" x2={(i+1)*2.5} y2="2" stroke="#b45309" strokeWidth="0.8" />
+                                            ))}
+                                        </g>
+                                    );
+                                })}
+
+                                {Object.entries(currentBoardDef.snakes || {}).map(([start, end]) => {
+                                    const sCoord = getCellCoords(parseInt(start));
+                                    const eCoord = getCellCoords(end);
+                                    const sX = (sCoord.col * 10) + 5; const sY = (sCoord.row * 10) + 5;
+                                    const eX = (eCoord.col * 10) + 5; const eY = (eCoord.row * 10) + 5;
+                                    const dx = eX - sX; const dy = eY - sY;
+                                    const midX1 = sX + (dx * 0.2) + (dy * 0.4); const midY1 = sY + (dy * 0.2) - (dx * 0.4);
+                                    const midX2 = sX + (dx * 0.8) - (dy * 0.4); const midY2 = sY + (dy * 0.8) + (dx * 0.4);
+                                    const path = `M ${sX} ${sY} C ${midX1} ${midY1}, ${midX2} ${midY2}, ${eX} ${eY}`;
+                                    const headAngle = Math.atan2(midY1 - sY, midX1 - sX) * (180 / Math.PI);
+                                    return (
+                                        <g key={`s-${start}`}>
+                                            <path d={path} fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" />
+                                            <path d={path} fill="none" stroke="#14532d" strokeWidth="0.8" strokeDasharray="0.8 1.5" strokeLinecap="round" />
+                                            <g transform={`translate(${sX} ${sY}) rotate(${headAngle})`}>
+                                                <ellipse cx="0" cy="0" rx="2.5" ry="1.8" fill="#16a34a" />
+                                                <circle cx="1" cy="-1" r="0.6" fill="white" />
+                                                <circle cx="1" cy="1" r="0.6" fill="white" />
+                                                <circle cx="1.2" cy="-1" r="0.25" fill="black" />
+                                                <circle cx="1.2" cy="1" r="0.25" fill="black" />
+                                                <path d="M 2.5 0 L 4.5 0 L 5.5 -0.8 M 4.5 0 L 5.5 0.8" fill="none" stroke="#ef4444" strokeWidth="0.4" strokeLinecap="round" strokeLinejoin="round" />
+                                            </g>
+                                        </g>
+                                    );
+                                })}
+                            </svg>
+
+                            {roomData.players.map((p) => {
+                                if (Number(p.position) === 0) return null;
+                                const coord = getCellCoords(Number(p.position));
+                                const ava = AVATARS.find(a => a.id === p.avatarId);
+                                const playersOnSameCell = roomData.players.filter(op => Number(op.position) === Number(p.position));
+                                const indexOnCell = playersOnSameCell.findIndex(op => op.id === p.id);
+                                let offsetClass = indexOnCell === 0 ? 'offset-0' : indexOnCell === 1 ? 'offset-1' : indexOnCell === 2 ? 'offset-2' : 'offset-3';
+
+                                return (
+                                    <div 
+                                        key={p.id}
+                                        className={`player-token ${ava?.bg} ${offsetClass} ring-2 ring-white`}
+                                        style={{
+                                            left: `${(coord.col * 10) + 1}%`, top: `${(coord.row * 10) + 1}%`,
+                                            width: '8%', height: '8%',
+                                            transition: 'all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                                        }}
+                                    >
+                                        <span className="text-xs">{ava?.icon}</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                );
             };
 
-            const submitAnswer = async (answerIndex) => {
-                if (userRole !== 'student' || !roomData || isProcessing) return;
-                const myPlayer = roomData.players.find(p => p.id === user.uid);
-                if (!myPlayer || myPlayer.currentState !== 'answering') return;
+            const GamePlay = () => {
+                if (!roomData) return null;
+                const isTeacher = userRole === 'teacher';
+                const myPlayer = isTeacher ? null : roomData.players.find(p => p.id === user?.uid);
                 
-                setIsProcessing(true); 
+                const qList = roomData.questions || [];
+                const qIndex = myPlayer ? (Number(myPlayer.correct) + Number(myPlayer.wrong)) % Math.max(1, qList.length) : 0;
                 
-                try {
-                    const qList = roomData.questions || [];
-                    if(qList.length === 0) {
-                        showToast("Menunggu soal dimuat...", "error");
-                        return;
-                    }
+                const fallbackQ = { q: "Memuat soal berikutnya...", options: ["-","-","-","-"], answer: 0 };
+                const currentQuestion = qList.length > 0 && qList[qIndex] ? qList[qIndex] : fallbackQ;
+                
+                const isAnswering = myPlayer?.currentState === 'answering';
+                const isRollingReady = myPlayer?.currentState === 'rolling';
+                const isMoving = myPlayer?.currentState === 'moving';
+                
+                const isGamePaused = roomData.config?.isPaused;
 
-                    const qIndex = (Number(myPlayer.correct) + Number(myPlayer.wrong)) % qList.length;
-                    const q = qList[qIndex];
-                    const isCorrect = answerIndex === q.answer;
-                    
-                    let updatedPlayer = { ...myPlayer };
-                    
-                    if (isCorrect) {
-                        playSound('correct');
-                        showToast("Jawaban Benar! Silakan kocok dadu.", "success");
-                        updatedPlayer.score = Number(updatedPlayer.score) + 100;
-                        updatedPlayer.correct = Number(updatedPlayer.correct) + 1;
-                        updatedPlayer.currentState = 'rolling'; 
-                    } else {
-                        playSound('wrong');
-                        showToast("Jawaban Salah! Coba soal berikutnya...", "error");
-                        updatedPlayer.wrong = Number(updatedPlayer.wrong) + 1;
-                        let newPos = Number(updatedPlayer.position) - Number(roomData.config?.wrongPenalty || 0);
-                        if(newPos < 1) newPos = 1;
-                        updatedPlayer.position = newPos;
-                    }
+                return (
+                    <div className="min-h-screen bg-slate-100 flex flex-col md:flex-row">
+                        <div className="w-full md:w-80 bg-white border-r border-slate-200 flex flex-col h-auto md:h-screen md:max-h-screen">
+                            <div className="p-4 bg-brand-navy text-white flex-shrink-0">
+                                <div className="text-xs text-brand-gold font-bold mb-1">ROOM: {roomData.id}</div>
+                                <h2 className="font-display font-bold text-lg leading-tight">Ular Tangga<br/>{roomData.config.subject}</h2>
+                            </div>
+                            
+                            <div className="p-3 bg-slate-50 border-b flex justify-between items-center flex-shrink-0">
+                                <span className="font-bold text-slate-600 text-sm">🏆 KLASEMEN LIVE</span>
+                                <span className="text-xs bg-white px-2 py-1 rounded shadow-sm">{roomData.players.length} Pemain</span>
+                            </div>
+                            
+                            <div className="flex-1 overflow-y-auto p-2 space-y-2 max-h-48 md:max-h-full">
+                                {[...roomData.players].sort((a,b) => b.position - a.position || b.score - a.score).map((p, index) => {
+                                    const ava = AVATARS.find(a => a.id === p.avatarId);
+                                    const isMe = p.id === user?.uid;
+                                    return (
+                                        <div key={p.id} className={`flex items-center gap-3 p-2 rounded-lg border ${isMe ? 'border-brand-teal bg-teal-50 shadow-sm' : 'border-slate-100 bg-white'}`}>
+                                            <div className="font-bold text-slate-400 w-4 text-center text-xs">{index + 1}</div>
+                                            <div className={`w-8 h-8 rounded-full flex-shrink-0 ${ava?.bg} flex items-center justify-center text-lg`}>{ava?.icon}</div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="font-bold text-brand-navy truncate text-xs">{p.name}</div>
+                                                <div className="text-[10px] text-slate-500 flex justify-between">
+                                                    <span>Kotak <b>{p.position || 1}</b></span>
+                                                    <span className="text-brand-gold font-bold">{p.score} pts</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        </div>
 
-                    await syncPlayerToDatabase(updatedPlayer);
+                        <div className="flex-1 p-4 md:p-6 flex flex-col h-screen overflow-y-auto">
+                            {isTeacher && (
+                                <div className="bg-white rounded-2xl p-6 shadow-sm mb-6 border-t-4 border-brand-teal">
+                                    <div className="flex justify-between items-center mb-4">
+                                        <div>
+                                            <h3 className="text-xl font-bold text-brand-navy">Panel Kendali Guru</h3>
+                                            <p className="text-sm text-slate-500">Pantau dan kelola aktivitas siswa secara langsung.</p>
+                                        </div>
+                                        <Button variant="danger" onClick={() => updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId), { status: 'finished' })}>Selesaikan Ujian</Button>
+                                    </div>
+                                    
+                                    <div className="flex gap-3 mb-6">
+                                        <button 
+                                            onClick={() => updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId), { 'config.isPaused': !isGamePaused })}
+                                            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${isGamePaused ? 'bg-green-500 text-white' : 'bg-amber-100 text-amber-700 hover:bg-amber-200'}`}
+                                        >
+                                            {isGamePaused ? '▶️ Lanjutkan Permainan' : '⏸️ Jeda Permainan (Pause)'}
+                                        </button>
+                                    </div>
 
-                    if (!isCorrect) {
-                         await sleep(1500); 
-                    }
-                } catch (e) {
-                    console.error("Submit Answer Error:", e);
-                    showToast("Terjadi gangguan, menyimpan progres secara lokal...", "info");
-                } finally {
-                    setIsProcessing(false); 
-                }
+                                    <h4 className="font-bold text-slate-700 text-sm mb-3">Tindakan Khusus per Siswa:</h4>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                        {roomData.players.map(p => (
+                                            <div key={p.id} className="p-3 border rounded-xl flex items-center justify-between bg-slate-50">
+                                                <div className="truncate pr-2">
+                                                    <div className="text-sm font-bold text-brand-navy truncate">{p.name}</div>
+                                                    <div className="text-[10px] text-slate-500">Status: {p.currentState}</div>
+                                                </div>
+                                                <div className="flex flex-col gap-1 flex-shrink-0">
+                                                    <button onClick={() => resetPlayerPosition(p.id)} className="text-[10px] bg-white border border-slate-300 px-2 py-1 rounded hover:bg-slate-100 font-bold">Reset Pion</button>
+                                                    <button onClick={() => kickPlayer(p.id)} className="text-[10px] bg-red-50 text-red-600 px-2 py-1 rounded hover:bg-red-100 font-bold">Keluarkan</button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {!isTeacher && (
+                                <div className="mb-6 flex flex-col gap-4">
+                                    {isGamePaused && (
+                                        <div className="bg-amber-100 border border-amber-300 text-amber-800 p-4 rounded-xl text-center font-bold">
+                                            ⏸️ Permainan sedang di-jeda oleh Guru.
+                                        </div>
+                                    )}
+
+                                    <div className="bg-white rounded-2xl p-4 md:p-6 shadow-sm border-2 border-slate-200 relative">
+                                        <div className="flex justify-between items-center mb-3">
+                                            <span className="bg-brand-navy text-white text-[10px] font-bold px-3 py-1 rounded-full">PERTANYAAN #{qIndex + 1}</span>
+                                            <span className="text-xs font-bold text-brand-teal">Skor: {myPlayer?.score}</span>
+                                        </div>
+                                        
+                                        <h3 className={`text-lg font-bold text-brand-navy mb-4 ${!isAnswering ? 'opacity-50' : ''}`}>
+                                            {currentQuestion.q}
+                                        </h3>
+                                        
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                            {currentQuestion.options.map((opt, idx) => (
+                                                <button 
+                                                    key={idx}
+                                                    disabled={isProcessing || !isAnswering || isGamePaused}
+                                                    onClick={() => submitAnswer(idx)}
+                                                    className={`p-3.5 border-2 rounded-xl text-left font-medium transition-all text-sm
+                                                        ${isAnswering && !isGamePaused 
+                                                            ? 'bg-slate-50 border-slate-200 hover:border-brand-teal hover:bg-teal-50 text-slate-700 cursor-pointer' 
+                                                            : 'bg-slate-100 border-slate-100 text-slate-400 cursor-not-allowed opacity-60'}`}
+                                                >
+                                                    <span className="font-bold mr-2 opacity-75">{String.fromCharCode(65 + idx)}.</span> {opt}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        
+                                        {!isAnswering && (
+                                            <div className="absolute inset-0 bg-white/40 backdrop-blur-[1px] flex items-center justify-center rounded-2xl z-10 pointer-events-none">
+                                                <div className="bg-white/90 px-4 py-2 rounded-full shadow text-sm font-bold text-brand-teal border border-teal-100">
+                                                    {isRollingReady ? '✅ Selesai. Giliran Kocok Dadu!' : (isMoving ? '🏃 Pion Bergerak...' : '🏁 Finish!')}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className={`rounded-2xl p-4 shadow-sm border flex items-center justify-between transition-all duration-300 ${isRollingReady ? 'bg-green-50 border-green-300' : 'bg-slate-50 border-slate-200'}`}>
+                                        <div>
+                                            <h4 className={`font-bold ${isRollingReady ? 'text-green-800' : 'text-slate-500'}`}>Giliran Dadu</h4>
+                                            <p className="text-xs text-slate-400 hidden sm:block">Jawab pertanyaan dengan benar untuk membuka kunci.</p>
+                                        </div>
+                                        <button
+                                            onClick={rollDice}
+                                            disabled={isProcessing || !isRollingReady || isGamePaused}
+                                            className={`px-6 py-3 rounded-xl font-bold text-base md:text-lg transition-all flex items-center gap-2 
+                                                ${isRollingReady && !isProcessing && !isGamePaused
+                                                    ? 'bg-green-600 hover:bg-green-700 text-white shadow-lg animate-bounce transform hover:scale-105 cursor-pointer' 
+                                                    : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
+                                        >
+                                            <span className="text-xl">🎲</span> KOCOK DADU
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="flex-1 flex items-center justify-center pb-10">
+                                <GameBoard roomData={roomData} />
+                            </div>
+                        </div>
+                    </div>
+                );
             };
 
-            const rollDice = async () => {
-                if (userRole !== 'student' || !roomData || isProcessing) return;
-                const myPlayer = roomData.players.find(p => p.id === user.uid);
-                if (!myPlayer || myPlayer.currentState !== 'rolling') return;
-                
-                setIsProcessing(true);
-                try {
-                    playSound('dice');
-                    const diceValue = Math.floor(Math.random() * 6) + 1;
-                    
-                    let updatedPlayer = { ...myPlayer, currentDice: diceValue, currentState: 'moving' };
-                    await syncPlayerToDatabase(updatedPlayer); 
-
-                    await sleep(1500); 
-                    
-                    let newPos = Number(updatedPlayer.position) + diceValue;
-                    if (newPos > 100) newPos = 100 - (newPos - 100); 
-                    updatedPlayer.position = newPos;
-                    
-                    await syncPlayerToDatabase(updatedPlayer); 
-                    await sleep(1000); 
-
-                    let finalPos = updatedPlayer.position;
-                    let hitEvent = false;
-                    let scoreModifier = 0;
-                    const board = roomData.board;
-
-                    if (board.snakes && board.snakes[finalPos]) {
-                        finalPos = board.snakes[finalPos];
-                        hitEvent = 'snake';
-                        scoreModifier = -30;
-                    } else if (board.ladders && board.ladders[finalPos]) {
-                        finalPos = board.ladders[finalPos];
-                        hitEvent = 'ladder';
-                        scoreModifier = 50;
-                    }
-
-                    if (hitEvent) {
-                        updatedPlayer.position = finalPos;
-                        updatedPlayer.score = Number(updatedPlayer.score) + scoreModifier;
-                        showToast(hitEvent === 'ladder' ? 'Naik Tangga! +50 Poin' : 'Aduh Terkena Ular! -30 Poin', hitEvent === 'ladder' ? 'success' : 'error');
-                        await syncPlayerToDatabase(updatedPlayer); 
-                        await sleep(1200); 
-                    }
-
-                    if (updatedPlayer.position === 100) {
-                        updatedPlayer.score = Number(updatedPlayer.score) + 500;
-                        updatedPlayer.currentState = 'finished';
-                        playSound('correct');
-                        showToast("SELAMAT KAMU MENCAPAI FINISH!", "success");
-                    } else {
-                        updatedPlayer.currentState = 'answering';
-                    }
-                    await syncPlayerToDatabase(updatedPlayer); 
-                    
-                } catch (e) {
-                    console.error("Roll Dice Error:", e);
-                    showToast("Gagal memproses pergerakan dadu. Coba lagi.", "error");
-                } finally {
-                    setIsProcessing(false);
-                }
-            };
-
-            const LandingScreen = () => (
+            const LandingScreenUI = () => (
                 <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCI+CjxyZWN0IHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgZmlsbD0iI2Y4ZmFmYyI+PC9yZWN0Pgo8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIyIiBmaWxsPSIjY2JkNWUxIj48L2NpcmNsZT4KPC9zdmc+')]">
                     <div className="text-center mb-10 max-w-2xl">
-                        <div className="bg-brand-navy text-white text-sm font-bold px-4 py-1 rounded-full inline-block mb-4 shadow-md">
-                            MTs NEGERI 14 JAKARTA
-                        </div>
-                        <h1 className="text-5xl md:text-6xl font-display font-bold text-brand-navy mb-4 leading-tight">
-                            DIGITAL <span className="text-brand-gold">SNAKE & LADDER</span>
-                        </h1>
+                        <div className="bg-brand-navy text-white text-sm font-bold px-4 py-1 rounded-full inline-block mb-4 shadow-md">MTs NEGERI 14 JAKARTA</div>
+                        <h1 className="text-5xl md:text-6xl font-display font-bold text-brand-navy mb-4 leading-tight">DIGITAL <span className="text-brand-gold">SNAKE & LADDER</span></h1>
                         <p className="text-xl text-slate-600 font-medium">Belajar, Bermain, Berkompetisi!</p>
                     </div>
 
@@ -1393,9 +1601,7 @@
                                     className="w-full p-3 border-2 rounded-xl mb-4 font-medium outline-none focus:border-brand-gold bg-white"
                                 >
                                     <option value="">-- Pilih Guru / Mapel --</option>
-                                    {teachersList.map(t => (
-                                        <option key={t.id} value={t.id}>{t.name} ({t.subject})</option>
-                                    ))}
+                                    {teachersList.map(t => <option key={t.id} value={t.id}>{t.name} ({t.subject})</option>)}
                                 </select>
                                 <input 
                                     type="password" 
@@ -1405,14 +1611,8 @@
                                         if(e.key === 'Enter') { 
                                             const t = teachersList.find(x => x.id === teacherSelectedId);
                                             if(t && teacherPass === t.pass) { 
-                                                setCurrentTeacher(t);
-                                                setUserRole('teacher'); 
-                                                setCurrentView('teacher_dash'); 
-                                                setTeacherModalOpen(false); 
-                                                setTeacherPass('');
-                                            } else { 
-                                                showToast("Guru tidak ditemukan atau password salah!", "error"); 
-                                            } 
+                                                setCurrentTeacher(t); setUserRole('teacher'); setCurrentView('teacher_dash'); setTeacherModalOpen(false); setTeacherPass('');
+                                            } else { showToast("Guru tidak ditemukan atau password salah!", "error"); } 
                                         } 
                                     }}
                                     placeholder="Password guru..."
@@ -1424,14 +1624,8 @@
                                     <Button className="flex-1" onClick={() => {
                                         const t = teachersList.find(x => x.id === teacherSelectedId);
                                         if (t && teacherPass === t.pass) {
-                                            setCurrentTeacher(t);
-                                            setUserRole('teacher');
-                                            setCurrentView('teacher_dash');
-                                            setTeacherModalOpen(false);
-                                            setTeacherPass('');
-                                        } else {
-                                            showToast("Guru tidak ditemukan atau password salah!", "error");
-                                        }
+                                            setCurrentTeacher(t); setUserRole('teacher'); setCurrentView('teacher_dash'); setTeacherModalOpen(false); setTeacherPass('');
+                                        } else { showToast("Guru tidak ditemukan atau password salah!", "error"); }
                                     }}>Masuk</Button>
                                 </div>
                             </div>
@@ -1455,12 +1649,7 @@
                                     type="password" 
                                     value={adminPassLogin} 
                                     onChange={e => setAdminPassLogin(e.target.value)} 
-                                    onKeyDown={async e => { 
-                                        if(e.key === 'Enter') {
-                                            const btn = document.getElementById('admin-login-btn');
-                                            if (btn) btn.click();
-                                        } 
-                                    }}
+                                    onKeyDown={async e => { if(e.key === 'Enter') document.getElementById('admin-login-btn').click(); }}
                                     placeholder="Password admin..."
                                     className="w-full p-3 border-2 rounded-xl mb-4 font-medium outline-none focus:border-purple-600"
                                 />
@@ -1470,25 +1659,16 @@
                                         try {
                                             const adminRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'admin_config');
                                             const snap = await getDoc(adminRef);
-                                            let validUser = 'admin';
-                                            let validPass = 'admin123';
+                                            let validUser = 'admin'; let validPass = 'admin123';
                                             if (snap.exists()) {
                                                 if(snap.data().username) validUser = snap.data().username;
                                                 if(snap.data().password) validPass = snap.data().password;
                                             }
                                             
                                             if (adminUserLogin === validUser && adminPassLogin === validPass) {
-                                                setUserRole('admin');
-                                                setCurrentView('admin_dash');
-                                                setAdminModalOpen(false);
-                                                setAdminUserLogin('');
-                                                setAdminPassLogin('');
-                                            } else {
-                                                showToast("Username atau password salah!", "error");
-                                            }
-                                        } catch (e) {
-                                            showToast("Gagal memverifikasi akun admin", "error");
-                                        }
+                                                setUserRole('admin'); setCurrentView('admin_dash'); setAdminModalOpen(false); setAdminUserLogin(''); setAdminPassLogin('');
+                                            } else { showToast("Username atau password salah!", "error"); }
+                                        } catch (e) { showToast("Gagal memverifikasi akun", "error"); }
                                     }}>Masuk Admin</Button>
                                 </div>
                             </div>
@@ -1497,7 +1677,7 @@
                 </div>
             );
 
-            const StudentJoin = () => (
+            const StudentJoinUI = () => (
                 <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
                     <div className="max-w-md w-full bg-white rounded-3xl p-8 shadow-xl border border-slate-200">
                         <div className="text-center mb-6">
@@ -1507,44 +1687,24 @@
                         <div className="space-y-4">
                             <div>
                                 <label className="block text-xs font-bold text-slate-700 mb-1 uppercase">Kode Room (Contoh: G7X2)</label>
-                                <input 
-                                    type="text" 
-                                    value={joinCode} 
-                                    onChange={e => setJoinCode(e.target.value)} 
-                                    placeholder="MT14-...." 
-                                    className="w-full p-3 border-2 rounded-xl uppercase font-bold text-brand-navy outline-none focus:border-brand-teal" 
-                                />
+                                <input type="text" value={joinCode} onChange={e => setJoinCode(e.target.value)} placeholder="MT14-...." className="w-full p-3 border-2 rounded-xl uppercase font-bold text-brand-navy outline-none focus:border-brand-teal" />
                             </div>
                             <div>
                                 <label className="block text-xs font-bold text-slate-700 mb-1 uppercase">Nama Lengkap</label>
-                                <input 
-                                    type="text" 
-                                    value={joinName} 
-                                    onChange={e => setJoinName(e.target.value)} 
-                                    placeholder="Nama siswa..." 
-                                    className="w-full p-3 border-2 rounded-xl font-medium outline-none focus:border-brand-teal" 
-                                />
+                                <input type="text" value={joinName} onChange={e => setJoinName(e.target.value)} placeholder="Nama siswa..." className="w-full p-3 border-2 rounded-xl font-medium outline-none focus:border-brand-teal" />
                             </div>
                             <div>
                                 <label className="block text-xs font-bold text-slate-700 mb-2 uppercase">Pilih Avatar Unikmu</label>
                                 <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto p-2 border rounded-xl bg-slate-50">
                                     {AVATARS.map(av => (
-                                        <div 
-                                            key={av.id} 
-                                            onClick={() => setSelectedAvatar(av.id)}
-                                            className={`p-3 rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all ${selectedAvatar === av.id ? 'ring-4 ring-brand-gold bg-white shadow-md scale-105' : 'hover:bg-white bg-slate-100'}`}
-                                        >
-                                            <span className="text-2xl">{av.icon}</span>
-                                            <span className="text-[10px] text-slate-600 font-bold truncate w-full text-center mt-1">{av.name}</span>
+                                        <div key={av.id} onClick={() => setSelectedAvatar(av.id)} className={`p-3 rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all ${selectedAvatar === av.id ? 'ring-4 ring-brand-gold bg-white shadow-md scale-105' : 'hover:bg-white bg-slate-100'}`}>
+                                            <span className="text-2xl">{av.icon}</span><span className="text-[10px] text-slate-600 font-bold truncate w-full text-center mt-1">{av.name}</span>
                                         </div>
                                     ))}
                                 </div>
                             </div>
                             <Button onClick={() => {
-                                if(!joinCode.trim() || !joinName.trim() || !selectedAvatar) {
-                                    showToast("Harap isi Kode Room, Nama, dan Pilih Avatar!", "error");
-                                    return;
-                                }
+                                if(!joinCode.trim() || !joinName.trim() || !selectedAvatar) { showToast("Isi form dengan lengkap!", "error"); return; }
                                 joinRoom(joinCode, joinName, selectedAvatar);
                             }} className="w-full py-4 text-lg">Masuk Game 🚀</Button>
                             <Button variant="outline" onClick={() => setCurrentView('landing')} className="w-full">Kembali</Button>
@@ -1553,21 +1713,15 @@
                 </div>
             );
 
-            const Lobby = () => {
+            const LobbyUI = () => {
                 if (!roomData) return null;
                 const isHost = userRole === 'teacher';
                 return (
                     <div className="min-h-screen bg-slate-50 p-6 flex flex-col items-center justify-center">
                         <div className="max-w-4xl w-full bg-white rounded-3xl p-8 shadow-xl border border-slate-200">
                             <div className="flex justify-between items-center mb-6 pb-4 border-b">
-                                <div>
-                                    <div className="text-xs font-bold text-brand-teal uppercase">Lobby Ruang Kelas</div>
-                                    <h1 className="text-3xl font-display font-bold text-brand-navy">Room: {roomData.id}</h1>
-                                </div>
-                                <div className="text-right">
-                                    <div className="text-xs text-slate-400 font-bold">Mata Pelajaran</div>
-                                    <div className="text-lg font-bold text-brand-gold">{roomData.config.subject}</div>
-                                </div>
+                                <div><div className="text-xs font-bold text-brand-teal uppercase">Lobby Ruang Kelas</div><h1 className="text-3xl font-display font-bold text-brand-navy">Room: {roomData.id}</h1></div>
+                                <div className="text-right"><div className="text-xs text-slate-400 font-bold">Mata Pelajaran</div><div className="text-lg font-bold text-brand-gold">{roomData.config.subject}</div></div>
                             </div>
 
                             <div className="mb-8">
@@ -1583,35 +1737,18 @@
                                                     <div className="text-[10px] text-green-600 font-bold">Siap Bermain</div>
                                                 </div>
                                                 {isHost && (
-                                                    <button 
-                                                        onClick={() => kickPlayer(p.id)}
-                                                        className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center bg-red-100 text-red-600 rounded-full transition-colors hover:bg-red-500 hover:text-white text-xs font-bold"
-                                                        title="Keluarkan Siswa"
-                                                    >
-                                                        ✕
-                                                    </button>
+                                                    <button onClick={() => kickPlayer(p.id)} className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center bg-red-100 text-red-600 rounded-full transition-colors hover:bg-red-500 hover:text-white text-xs font-bold" title="Keluarkan Siswa">✕</button>
                                                 )}
                                             </div>
                                         );
                                     })}
-                                    {roomData.players.length === 0 && (
-                                        <div className="col-span-4 text-center py-10 text-slate-400 font-medium">Belum ada siswa yang bergabung. Bagikan kode <b className="text-brand-navy">{roomData.id}</b> kepada siswa!</div>
-                                    )}
+                                    {roomData.players.length === 0 && <div className="col-span-4 text-center py-10 text-slate-400 font-medium">Belum ada siswa yang bergabung. Bagikan kode <b className="text-brand-navy">{roomData.id}</b> kepada siswa!</div>}
                                 </div>
                             </div>
 
                             <div className="flex gap-4">
                                 <Button variant="outline" onClick={handleLeaveRoom} className="flex-1">Keluar Room</Button>
-                                {isHost && (
-                                    <Button onClick={startGame} disabled={roomData.players.length === 0} className="flex-1 py-4 text-lg">
-                                        Mulai Permainan 🚀
-                                    </Button>
-                                )}
-                                {!isHost && (
-                                    <div className="flex-1 bg-teal-50 border border-teal-200 rounded-2xl flex items-center justify-center text-teal-800 font-bold text-sm">
-                                        Menunggu guru memulai permainan...
-                                    </div>
-                                )}
+                                {isHost ? <Button onClick={startGame} disabled={roomData.players.length === 0} className="flex-1 py-4 text-lg">Mulai Permainan 🚀</Button> : <div className="flex-1 bg-teal-50 border border-teal-200 rounded-2xl flex items-center justify-center text-teal-800 font-bold text-sm">Menunggu guru memulai permainan...</div>}
                             </div>
                         </div>
                     </div>
@@ -1619,6 +1756,22 @@
             };
 
             const AdminDashboard = () => {
+                useEffect(() => {
+                    const fetchAdminData = async () => {
+                        if (!db) return;
+                        try {
+                            const snap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'admin_config'));
+                            if(snap.exists()) {
+                                setAdminConfigUser(snap.data().username || 'admin');
+                                setAdminConfigPass(snap.data().password || 'admin123');
+                            } else {
+                                setAdminConfigPass('admin123');
+                            }
+                        } catch(e) { console.error("Error fetching admin data"); }
+                    };
+                    fetchAdminData();
+                }, [db]);
+
                 return (
                     <div className="min-h-screen bg-slate-50 p-6">
                         <div className="max-w-6xl mx-auto">
@@ -1694,265 +1847,36 @@
                                     </div>
                                 </Card>
                             </div>
-                        </div>
-                    </div>
-                );
-            };
 
-            const GameBoard = ({ roomData }) => {
-                const getCellCoords = (cellNum) => {
-                    if (cellNum < 1 || cellNum > 100) return {x:0, y:0};
-                    const row = Math.floor((cellNum - 1) / 10);
-                    const isEvenRow = row % 2 === 0;
-                    const col = (cellNum - 1) % 10;
-                    const actualCol = isEvenRow ? col : 9 - col;
-                    return { row: 9 - row, col: actualCol };
-                };
-
-                const currentBoardDef = roomData.board || BOARD_LAYOUTS.classic;
-                const cellColors = currentBoardDef.cellColors || ['bg-rose-200', 'bg-amber-200', 'bg-emerald-200', 'bg-sky-200', 'bg-violet-200'];
-
-                return (
-                    <div className={`relative w-full max-w-xl mx-auto shadow-2xl rounded-xl p-3 ${currentBoardDef.bgTheme || 'bg-white'}`}>
-                        <div className="mb-2 text-center font-bold text-xs opacity-75 uppercase tracking-wider">
-                            Tema Papan: {currentBoardDef.name || 'Klasik'}
-                        </div>
-                        <div className="board-grid">
-                            {boardCells.map((c) => (
-                                <div key={c.num} className={`board-cell ${cellColors[c.num % cellColors.length]} relative border border-white/40 shadow-inner`}>
-                                    <span className="absolute top-1 left-1 text-[10px] sm:text-xs font-bold opacity-75">{c.num}</span>
-                                    {c.num === 1 && <span className="absolute bottom-1 right-1 text-[9px] font-bold bg-white/70 px-1 rounded text-black">START</span>}
-                                    {c.num === 100 && <span className="absolute top-1 right-1 text-[9px] font-bold bg-white/70 px-1 rounded text-black">FINISH</span>}
+                            <Card className="cursor-default">
+                                <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><span>🛡️</span> Pengaturan Kredensial Admin</h2>
+                                <div className="bg-slate-50 p-5 rounded-xl border border-slate-200">
+                                    <p className="text-sm text-slate-500 mb-4">Ubah username dan password utama untuk mengakses Panel Super Admin. Pastikan Anda mengingat data yang baru!</p>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                        <div>
+                                            <label className="block text-sm font-bold text-slate-700 mb-1">Username Admin Baru</label>
+                                            <input type="text" value={adminConfigUser} onChange={e => setAdminConfigUser(e.target.value)} className="w-full p-3 border rounded-xl font-medium outline-none bg-white focus:border-brand-teal" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-bold text-slate-700 mb-1">Password Admin Baru</label>
+                                            <input type="text" value={adminConfigPass} onChange={e => setAdminConfigPass(e.target.value)} className="w-full p-3 border rounded-xl font-medium outline-none bg-white focus:border-brand-teal" />
+                                        </div>
+                                    </div>
+                                    <Button onClick={async () => {
+                                        if(!adminConfigUser.trim() || !adminConfigPass.trim()) { showToast("Username dan Password tidak boleh kosong!", "error"); return; }
+                                        try {
+                                            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'admin_config'), {
+                                                username: adminConfigUser.trim(),
+                                                password: adminConfigPass.trim(),
+                                                updatedAt: Date.now()
+                                            }, { merge: true });
+                                            showToast("Kredensial Admin berhasil diperbarui!", "success");
+                                        } catch(e) {
+                                            showToast("Gagal menyimpan kredensial", "error");
+                                        }
+                                    }} className="bg-brand-navy hover:bg-slate-800 text-white">Simpan Perubahan Admin</Button>
                                 </div>
-                            ))}
-
-                            <svg viewBox="0 0 100 100" className="absolute top-0 left-0 w-full h-full pointer-events-none drop-shadow-lg" style={{ zIndex: 5 }}>
-                                {Object.entries(currentBoardDef.ladders || {}).map(([start, end]) => {
-                                    const sCoord = getCellCoords(parseInt(start));
-                                    const eCoord = getCellCoords(end);
-                                    
-                                    const sX = (sCoord.col * 10) + 5;
-                                    const sY = (sCoord.row * 10) + 5;
-                                    const eX = (eCoord.col * 10) + 5;
-                                    const eY = (eCoord.row * 10) + 5;
-                                    
-                                    const dx = eX - sX;
-                                    const dy = eY - sY;
-                                    const angle = Math.atan2(dy, dx) * (180 / Math.PI);
-                                    const length = Math.sqrt(dx*dx + dy*dy);
-
-                                    return (
-                                        <g key={`l-${start}`} transform={`translate(${sX} ${sY}) rotate(${angle})`}>
-                                            <line x1="0" y1="-2" x2={length} y2="-2" stroke="#92400e" strokeWidth="1" strokeLinecap="round" />
-                                            <line x1="0" y1="2" x2={length} y2="2" stroke="#92400e" strokeWidth="1" strokeLinecap="round" />
-                                            {Array.from({length: Math.floor(length / 2.5)}).map((_, i) => (
-                                                <line key={`rung-${i}`} x1={(i+1)*2.5} y1="-2" x2={(i+1)*2.5} y2="2" stroke="#b45309" strokeWidth="0.8" />
-                                            ))}
-                                        </g>
-                                    );
-                                })}
-
-                                {Object.entries(currentBoardDef.snakes || {}).map(([start, end]) => {
-                                    const sCoord = getCellCoords(parseInt(start));
-                                    const eCoord = getCellCoords(end);
-                                    
-                                    const sX = (sCoord.col * 10) + 5;
-                                    const sY = (sCoord.row * 10) + 5;
-                                    const eX = (eCoord.col * 10) + 5;
-                                    const eY = (eCoord.row * 10) + 5;
-                                    
-                                    const dx = eX - sX;
-                                    const dy = eY - sY;
-                                    
-                                    const midX1 = sX + (dx * 0.2) + (dy * 0.4);
-                                    const midY1 = sY + (dy * 0.2) - (dx * 0.4);
-                                    const midX2 = sX + (dx * 0.8) - (dy * 0.4);
-                                    const midY2 = sY + (dy * 0.8) + (dx * 0.4);
-                                    const path = `M ${sX} ${sY} C ${midX1} ${midY1}, ${midX2} ${midY2}, ${eX} ${eY}`;
-                                    
-                                    const headAngle = Math.atan2(midY1 - sY, midX1 - sX) * (180 / Math.PI);
-
-                                    return (
-                                        <g key={`s-${start}`}>
-                                            <path d={path} fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" />
-                                            <path d={path} fill="none" stroke="#14532d" strokeWidth="0.8" strokeDasharray="0.8 1.5" strokeLinecap="round" />
-                                            <g transform={`translate(${sX} ${sY}) rotate(${headAngle})`}>
-                                                <ellipse cx="0" cy="0" rx="2.5" ry="1.8" fill="#16a34a" />
-                                                <circle cx="1" cy="-1" r="0.6" fill="white" />
-                                                <circle cx="1" cy="1" r="0.6" fill="white" />
-                                                <circle cx="1.2" cy="-1" r="0.25" fill="black" />
-                                                <circle cx="1.2" cy="1" r="0.25" fill="black" />
-                                                <path d="M 2.5 0 L 4.5 0 L 5.5 -0.8 M 4.5 0 L 5.5 0.8" fill="none" stroke="#ef4444" strokeWidth="0.4" strokeLinecap="round" strokeLinejoin="round" />
-                                            </g>
-                                        </g>
-                                    );
-                                })}
-                            </svg>
-
-                            {roomData.players.map((p) => {
-                                if (p.position === 0) return null;
-                                const coord = getCellCoords(p.position);
-                                const ava = AVATARS.find(a => a.id === p.avatarId);
-                                
-                                const playersOnSameCell = roomData.players.filter(op => op.position === p.position);
-                                const indexOnCell = playersOnSameCell.findIndex(op => op.id === p.id);
-                                let offsetClass = indexOnCell === 0 ? 'offset-0' : indexOnCell === 1 ? 'offset-1' : indexOnCell === 2 ? 'offset-2' : 'offset-3';
-
-                                return (
-                                    <div 
-                                        key={p.id}
-                                        className={`player-token ${ava?.bg} ${offsetClass} ring-2 ring-white`}
-                                        style={{
-                                            left: `${(coord.col * 10) + 1}%`,
-                                            top: `${(coord.row * 10) + 1}%`,
-                                            width: '8%', height: '8%',
-                                            transition: 'all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)'
-                                        }}
-                                    >
-                                        <span className="text-xs">{ava?.icon}</span>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                );
-            };
-
-            const GamePlay = () => {
-                if (!roomData) return null;
-                const isTeacher = userRole === 'teacher';
-                const myPlayer = isTeacher ? null : roomData.players.find(p => p.id === user?.uid);
-                
-                const qList = roomData.questions || [];
-                const qIndex = myPlayer ? (Number(myPlayer.correct) + Number(myPlayer.wrong)) % Math.max(1, qList.length) : 0;
-                const currentQuestion = qList.length > 0 ? qList[qIndex] : {
-                    q: "Sedang memuat soal... (Tunggu sebentar atau hubungi guru jika macet)",
-                    options: ["-", "-", "-", "-"],
-                    answer: 0
-                }; 
-
-                return (
-                    <div className="min-h-screen bg-slate-100 flex flex-col md:flex-row">
-                        {/* Sidebar Klasemen */}
-                        <div className="w-full md:w-80 bg-white border-r border-slate-200 flex flex-col h-auto md:h-screen">
-                            <div className="p-4 bg-brand-navy text-white">
-                                <div className="text-xs text-brand-gold font-bold mb-1">ROOM: {roomData.id}</div>
-                                <h2 className="font-display font-bold text-lg">Ular Tangga Serentak</h2>
-                            </div>
-                            
-                            <div className="p-3 bg-slate-50 border-b flex justify-between items-center">
-                                <span className="font-bold text-slate-600 text-sm">🏆 KLASEMEN LIVE</span>
-                                <span className="text-xs bg-white px-2 py-1 rounded shadow-sm">{roomData.players.length} Pemain</span>
-                            </div>
-                            
-                            <div className="flex-1 overflow-y-auto p-2 space-y-2 max-h-64 md:max-h-none">
-                                {[...roomData.players].sort((a,b) => b.position - a.position || b.score - a.score).map((p, index) => {
-                                    const ava = AVATARS.find(a => a.id === p.avatarId);
-                                    const isMe = p.id === user?.uid;
-                                    return (
-                                        <div key={p.id} className={`flex items-center gap-3 p-2 rounded-lg border ${isMe ? 'border-brand-teal bg-teal-50' : 'border-slate-100 bg-white'}`}>
-                                            <div className="font-bold text-slate-400 w-4 text-center">{index + 1}</div>
-                                            <div className={`w-10 h-10 rounded-full flex-shrink-0 ${ava?.bg} flex items-center justify-center text-xl`}>{ava?.icon}</div>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="font-bold text-brand-navy truncate text-sm">{p.name} {isMe ? '(Kamu)' : ''}</div>
-                                                <div className="text-xs text-slate-500 flex justify-between">
-                                                    <span>Kotak: <b>{p.position || 1}</b></span>
-                                                    <span className="text-brand-gold font-bold">{p.score} pts</span>
-                                                </div>
-                                            </div>
-                                            {isTeacher && (
-                                                <button 
-                                                    onClick={() => kickPlayer(p.id)}
-                                                    className="w-8 h-8 flex items-center justify-center bg-red-50 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-colors flex-shrink-0 text-xs font-bold"
-                                                    title="Keluarkan Siswa"
-                                                >
-                                                    ✕
-                                                </button>
-                                            )}
-                                        </div>
-                                    )
-                                })}
-                            </div>
-                        </div>
-
-                        {/* Main Screen: Single Page Layout (Soal di Atas, Papan di Bawah) */}
-                        <div className="flex-1 p-4 md:p-6 flex flex-col h-screen overflow-y-auto">
-                            <div className="bg-white rounded-2xl p-4 shadow-sm mb-4 flex justify-between items-center flex-wrap gap-4">
-                                <div className="flex items-center gap-4">
-                                    <div className="bg-brand-teal text-white w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold">
-                                        {isTeacher ? '🚀' : myPlayer?.currentDice || '🎲'}
-                                    </div>
-                                    <div>
-                                        <div className="text-sm text-slate-500 font-bold uppercase">Status Permainan</div>
-                                        <div className="text-lg font-bold text-brand-navy">
-                                            {isTeacher ? 'Mode Kontrol Guru (Live)' : myPlayer?.currentState === 'answering' ? 'Jawab Soal di Bawah Ini...' : 'Silakan Kocok Dadu!'}
-                                        </div>
-                                    </div>
-                                </div>
-                                <div>
-                                    {isTeacher && (
-                                        <Button variant="danger" className="py-2 text-sm" onClick={() => updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId), { status: 'finished' })}>Selesaikan Game</Button>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* AREA KONTROL UTAMA (Blok Soal / Dadu) */}
-                            <div className="flex flex-col gap-4 mb-6">
-                                {/* TAMPILAN JAWAB SOAL */}
-                                {!isTeacher && myPlayer?.currentState === 'answering' && (
-                                    <div className="bg-white rounded-2xl p-4 md:p-6 shadow-md border-2 border-brand-gold relative">
-                                        {isProcessing && <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center font-bold text-brand-teal text-lg rounded-2xl backdrop-blur-sm">Memproses Jawaban...</div>}
-                                        <div className="flex justify-between items-center mb-3">
-                                            <span className="bg-brand-gold text-white text-xs font-bold px-3 py-1 rounded-full">SOAL UJIAN MANDIRI #{qIndex + 1}</span>
-                                            <span className="text-xs font-bold text-slate-500">Benar: {myPlayer.correct} | Salah: {myPlayer.wrong}</span>
-                                        </div>
-                                        <h3 className="text-lg md:text-xl font-bold text-brand-navy mb-4">{currentQuestion.q}</h3>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                            {currentQuestion.options.map((opt, idx) => (
-                                                <button 
-                                                    key={idx}
-                                                    disabled={isProcessing}
-                                                    onClick={() => submitAnswer(idx)}
-                                                    className="p-3.5 border-2 rounded-xl text-left font-medium transition-all text-sm disabled:cursor-not-allowed bg-slate-50 border-slate-200 hover:border-brand-teal hover:bg-teal-50 text-slate-700"
-                                                >
-                                                    <span className="font-bold mr-2 text-slate-400">{String.fromCharCode(65 + idx)}.</span> {opt}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* TAMPILAN KOCOK DADU & MELANGKAH */}
-                                {!isTeacher && (myPlayer?.currentState === 'rolling' || myPlayer?.currentState === 'moving') && (
-                                    <div className="bg-green-50 border-2 border-green-500 rounded-2xl p-6 shadow-lg text-center relative transform transition-all scale-100">
-                                        <h3 className="text-xl font-bold text-green-800 mb-1">
-                                            {myPlayer?.currentState === 'moving' ? '🏃 Melangkah di Papan...' : '🎉 Jawaban Tepat!'}
-                                        </h3>
-                                        <p className="text-sm text-green-600 mb-4">
-                                            {myPlayer?.currentState === 'moving' ? `Dadu menunjukkan angka ${myPlayer.currentDice}. Perhatikan pergerakan pionmu!` : 'Waktunya melangkah di papan ular tangga.'}
-                                        </p>
-                                        
-                                        {myPlayer?.currentState === 'rolling' && (
-                                            <Button onClick={rollDice} disabled={isProcessing} className="mx-auto px-10 py-4 text-xl bg-green-600 hover:bg-green-700 text-white shadow-xl flex items-center gap-2 animate-bounce">
-                                                <span className="text-3xl">🎲</span> KOCOK DADU SEKARANG!
-                                            </Button>
-                                        )}
-                                    </div>
-                                )}
-
-                                {/* TAMPILAN FINISH */}
-                                {!isTeacher && myPlayer?.currentState === 'finished' && (
-                                    <div className="bg-yellow-50 border-2 border-yellow-500 rounded-2xl p-6 shadow-lg text-center">
-                                        <h3 className="text-2xl font-bold text-yellow-800 mb-2">🏆 KAMU SUDAH FINISH!</h3>
-                                        <p className="text-slate-600">Luar biasa! Kamu telah menyelesaikan permainan dengan skor <b className="text-brand-gold">{myPlayer.score}</b></p>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* PAPAN ULAR TANGGA */}
-                            <div className="flex-1 flex items-center justify-center pb-10">
-                                {GameBoard({ roomData })}
-                            </div>
+                            </Card>
                         </div>
                     </div>
                 );
@@ -1971,11 +1895,7 @@
                             <table className="w-full text-left border-collapse">
                                 <thead>
                                     <tr className="text-slate-400 border-b border-slate-700 text-sm">
-                                        <th className="p-3">Rank</th>
-                                        <th className="p-3">Siswa</th>
-                                        <th className="p-3 text-center">Posisi</th>
-                                        <th className="p-3 text-center">Benar</th>
-                                        <th className="p-3 text-right">Skor</th>
+                                        <th className="p-3">Rank</th><th className="p-3">Siswa</th><th className="p-3 text-center">Posisi</th><th className="p-3 text-center">Benar</th><th className="p-3 text-right">Skor</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -1983,9 +1903,7 @@
                                         <tr key={p.id} className="border-b border-slate-700">
                                             <td className="p-3 font-bold">#{i + 1}</td>
                                             <td className="p-3 font-bold flex items-center gap-2"><span>{AVATARS.find(a=>a.id===p.avatarId)?.icon}</span> {p.name}</td>
-                                            <td className="p-3 text-center">Kotak {p.position}</td>
-                                            <td className="p-3 text-center text-green-400">{p.correct}</td>
-                                            <td className="p-3 text-right font-bold text-brand-gold">{p.score}</td>
+                                            <td className="p-3 text-center">Kotak {p.position}</td><td className="p-3 text-center text-green-400">{p.correct}</td><td className="p-3 text-right font-bold text-brand-gold">{p.score}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -1998,9 +1916,7 @@
                 );
             };
 
-            if (loading) {
-                return <div className="min-h-screen flex items-center justify-center text-brand-navy font-bold text-2xl">Memuat Sistem...</div>;
-            }
+            if (loading) return <div className="min-h-screen flex items-center justify-center text-brand-navy font-bold text-2xl">Memuat Sistem...</div>;
 
             return (
                 <div className="font-sans text-slate-800">
@@ -2009,32 +1925,13 @@
                             {toast.msg}
                         </div>
                     )}
-
-                    {currentView === 'landing' && LandingScreen()}
-                    {currentView === 'teacher_dash' && (
-                        <TeacherDashboard 
-                            currentTeacher={currentTeacher}
-                            masterQuestionBank={masterQuestionBank}
-                            setMasterQuestionBank={setMasterQuestionBank}
-                            selectedClass={selectedClass}
-                            setSelectedClass={setSelectedClass}
-                            createRoom={createRoom}
-                            setCurrentView={setCurrentView}
-                            showToast={showToast}
-                            db={db}
-                            appId={appId}
-                            selectedBoardKey={selectedBoardKey}
-                            setSelectedBoardKey={setSelectedBoardKey}
-                        />
-                    )}
-                    {currentView === 'admin_dash' && AdminDashboard()}
-                    {currentView === 'join_room' && StudentJoin()}
-                    {currentView === 'lobby' && Lobby()}
-                    {currentView === 'playing' && GamePlay()}
-                    {currentView === 'finished' && ResultScreen()}
-                    
-                    {roomData && roomData.status === 'playing' && currentView !== 'playing' && (() => { setCurrentView('playing'); return null; })()}
-                    {roomData && roomData.status === 'finished' && currentView !== 'finished' && (() => { setCurrentView('finished'); return null; })()}
+                    {currentView === 'landing' && LandingScreenUI()}
+                    {currentView === 'teacher_dash' && <TeacherDashboard currentTeacher={currentTeacher} masterQuestionBank={masterQuestionBank} setMasterQuestionBank={setMasterQuestionBank} selectedClass={selectedClass} setSelectedClass={setSelectedClass} createRoom={createRoom} setCurrentView={setCurrentView} showToast={showToast} db={db} appId={appId} selectedBoardKey={selectedBoardKey} setSelectedBoardKey={setSelectedBoardKey} />}
+                    {currentView === 'admin_dash' && <AdminDashboard />}
+                    {currentView === 'join_room' && StudentJoinUI()}
+                    {currentView === 'lobby' && LobbyUI()}
+                    {currentView === 'playing' && <GamePlay />}
+                    {currentView === 'finished' && <ResultScreen />}
                 </div>
             );
         }
