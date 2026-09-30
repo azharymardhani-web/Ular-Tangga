@@ -1221,11 +1221,9 @@
 
             const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-            // FUNGSI BACKGROUND SYNC (Aman dari Tabrakan Data)
             const syncPlayerToDatabase = async (updatedPlayerObj) => {
                 try {
                     const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
-                    // Ambil data paling update sebelum menimpa agar tidak terjadi race condition
                     const snap = await getDoc(roomRef);
                     if(snap.exists()) {
                         const data = snap.data();
@@ -1233,7 +1231,6 @@
                         const pIndex = players.findIndex(p => p.id === updatedPlayerObj.id);
                         if(pIndex !== -1) {
                             players[pIndex] = updatedPlayerObj;
-                            // Update ke lokal cache (IndexedDB) & Firebase
                             await updateDoc(roomRef, { players: players });
                         }
                     }
@@ -1256,7 +1253,7 @@
                         return;
                     }
 
-                    const qIndex = (myPlayer.correct + myPlayer.wrong) % qList.length;
+                    const qIndex = (Number(myPlayer.correct) + Number(myPlayer.wrong)) % qList.length;
                     const q = qList[qIndex];
                     const isCorrect = answerIndex === q.answer;
                     
@@ -1265,23 +1262,22 @@
                     if (isCorrect) {
                         playSound('correct');
                         showToast("Jawaban Benar! Silakan kocok dadu.", "success");
-                        updatedPlayer.score += 100;
-                        updatedPlayer.correct += 1;
+                        updatedPlayer.score = Number(updatedPlayer.score) + 100;
+                        updatedPlayer.correct = Number(updatedPlayer.correct) + 1;
                         updatedPlayer.currentState = 'rolling'; 
                     } else {
                         playSound('wrong');
                         showToast("Jawaban Salah! Coba soal berikutnya...", "error");
-                        updatedPlayer.wrong += 1;
-                        let newPos = updatedPlayer.position - (roomData.config?.wrongPenalty || 0);
+                        updatedPlayer.wrong = Number(updatedPlayer.wrong) + 1;
+                        let newPos = Number(updatedPlayer.position) - Number(roomData.config?.wrongPenalty || 0);
                         if(newPos < 1) newPos = 1;
                         updatedPlayer.position = newPos;
                     }
 
-                    // AWAIT WAJIB: Menunggu data jawaban tersimpan sempurna sebelum membuka akses tombol lain
                     await syncPlayerToDatabase(updatedPlayer);
 
                     if (!isCorrect) {
-                         await sleep(1500); // Jeda agar siswa membaca salahnya sebelum soal diganti
+                         await sleep(1500); 
                     }
                 } catch (e) {
                     console.error("Submit Answer Error:", e);
@@ -1301,21 +1297,18 @@
                     playSound('dice');
                     const diceValue = Math.floor(Math.random() * 6) + 1;
                     
-                    // Tahap 1: Tampilkan angka dadu secara instan (Lokal)
                     let updatedPlayer = { ...myPlayer, currentDice: diceValue, currentState: 'moving' };
-                    await syncPlayerToDatabase(updatedPlayer); // <-- AWAIT DITAMBAHKAN
+                    await syncPlayerToDatabase(updatedPlayer); 
 
-                    await sleep(1500); // Jeda visual dadu berputar
+                    await sleep(1500); 
                     
-                    // Hitung Posisi Baru
-                    let newPos = updatedPlayer.position + diceValue;
+                    let newPos = Number(updatedPlayer.position) + diceValue;
                     if (newPos > 100) newPos = 100 - (newPos - 100); 
                     updatedPlayer.position = newPos;
                     
-                    await syncPlayerToDatabase(updatedPlayer); // <-- AWAIT DITAMBAHKAN
-                    await sleep(1000); // Jeda pion berjalan di layar
+                    await syncPlayerToDatabase(updatedPlayer); 
+                    await sleep(1000); 
 
-                    // Tahap Ular / Tangga
                     let finalPos = updatedPlayer.position;
                     let hitEvent = false;
                     let scoreModifier = 0;
@@ -1333,22 +1326,21 @@
 
                     if (hitEvent) {
                         updatedPlayer.position = finalPos;
-                        updatedPlayer.score += scoreModifier;
+                        updatedPlayer.score = Number(updatedPlayer.score) + scoreModifier;
                         showToast(hitEvent === 'ladder' ? 'Naik Tangga! +50 Poin' : 'Aduh Terkena Ular! -30 Poin', hitEvent === 'ladder' ? 'success' : 'error');
-                        await syncPlayerToDatabase(updatedPlayer); // <-- AWAIT DITAMBAHKAN
-                        await sleep(1200); // Jeda naik turun
+                        await syncPlayerToDatabase(updatedPlayer); 
+                        await sleep(1200); 
                     }
 
-                    // Tahap Akhir (Kembali Jawab Soal atau Menang)
                     if (updatedPlayer.position === 100) {
-                        updatedPlayer.score += 500;
+                        updatedPlayer.score = Number(updatedPlayer.score) + 500;
                         updatedPlayer.currentState = 'finished';
                         playSound('correct');
                         showToast("SELAMAT KAMU MENCAPAI FINISH!", "success");
                     } else {
                         updatedPlayer.currentState = 'answering';
                     }
-                    await syncPlayerToDatabase(updatedPlayer); // <-- AWAIT DITAMBAHKAN
+                    await syncPlayerToDatabase(updatedPlayer); 
                     
                 } catch (e) {
                     console.error("Roll Dice Error:", e);
@@ -1831,9 +1823,8 @@
                 const isTeacher = userRole === 'teacher';
                 const myPlayer = isTeacher ? null : roomData.players.find(p => p.id === user?.uid);
                 
-                // Perlindungan Anti-Crash untuk Soal
                 const qList = roomData.questions || [];
-                const qIndex = myPlayer ? (myPlayer.correct + myPlayer.wrong) % Math.max(1, qList.length) : 0;
+                const qIndex = myPlayer ? (Number(myPlayer.correct) + Number(myPlayer.wrong)) % Math.max(1, qList.length) : 0;
                 const currentQuestion = qList.length > 0 ? qList[qIndex] : {
                     q: "Sedang memuat soal... (Tunggu sebentar atau hubungi guru jika macet)",
                     options: ["-", "-", "-", "-"],
@@ -1905,12 +1896,12 @@
                                 </div>
                             </div>
 
-                            {/* AREA KONTROL UTAMA */}
+                            {/* AREA KONTROL UTAMA (Blok Soal / Dadu) */}
                             <div className="flex flex-col gap-4 mb-6">
-                                {/* TAMPILAN JAWAB SOAL SELALU MUNCUL KECUALI FINISH */}
-                                {!isTeacher && myPlayer?.currentState !== 'finished' && (
-                                    <div className={`bg-white rounded-2xl p-4 md:p-6 shadow-md border-2 transition-all ${myPlayer?.currentState !== 'answering' ? 'border-slate-200 opacity-60' : 'border-brand-gold relative'}`}>
-                                        {isProcessing && myPlayer?.currentState === 'answering' && <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center font-bold text-brand-teal text-lg rounded-2xl backdrop-blur-sm">Memproses Jawaban...</div>}
+                                {/* TAMPILAN JAWAB SOAL */}
+                                {!isTeacher && myPlayer?.currentState === 'answering' && (
+                                    <div className="bg-white rounded-2xl p-4 md:p-6 shadow-md border-2 border-brand-gold relative">
+                                        {isProcessing && <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center font-bold text-brand-teal text-lg rounded-2xl backdrop-blur-sm">Memproses Jawaban...</div>}
                                         <div className="flex justify-between items-center mb-3">
                                             <span className="bg-brand-gold text-white text-xs font-bold px-3 py-1 rounded-full">SOAL UJIAN MANDIRI #{qIndex + 1}</span>
                                             <span className="text-xs font-bold text-slate-500">Benar: {myPlayer.correct} | Salah: {myPlayer.wrong}</span>
@@ -1920,11 +1911,9 @@
                                             {currentQuestion.options.map((opt, idx) => (
                                                 <button 
                                                     key={idx}
-                                                    disabled={isProcessing || myPlayer?.currentState !== 'answering'}
+                                                    disabled={isProcessing}
                                                     onClick={() => submitAnswer(idx)}
-                                                    className={`p-3.5 border-2 rounded-xl text-left font-medium transition-all text-sm disabled:cursor-not-allowed ${
-                                                        myPlayer?.currentState !== 'answering' ? 'bg-slate-100 border-slate-200 text-slate-500' : 'bg-slate-50 border-slate-200 hover:border-brand-teal hover:bg-teal-50 text-slate-700'
-                                                    }`}
+                                                    className="p-3.5 border-2 rounded-xl text-left font-medium transition-all text-sm disabled:cursor-not-allowed bg-slate-50 border-slate-200 hover:border-brand-teal hover:bg-teal-50 text-slate-700"
                                                 >
                                                     <span className="font-bold mr-2 text-slate-400">{String.fromCharCode(65 + idx)}.</span> {opt}
                                                 </button>
@@ -1933,25 +1922,21 @@
                                     </div>
                                 )}
 
-                                {/* TAMPILAN KOCOK DADU */}
-                                {!isTeacher && myPlayer?.currentState === 'rolling' && (
+                                {/* TAMPILAN KOCOK DADU & MELANGKAH */}
+                                {!isTeacher && (myPlayer?.currentState === 'rolling' || myPlayer?.currentState === 'moving') && (
                                     <div className="bg-green-50 border-2 border-green-500 rounded-2xl p-6 shadow-lg text-center relative transform transition-all scale-100">
-                                        {isProcessing && <div className="absolute inset-0 bg-green-50/80 z-10 flex items-center justify-center font-bold text-green-700 text-lg rounded-2xl backdrop-blur-sm">Mengocok dadu...</div>}
-                                        <h3 className="text-xl font-bold text-green-800 mb-1">🎉 Jawaban Tepat!</h3>
-                                        <p className="text-sm text-green-600 mb-4">Waktunya melangkah di papan ular tangga.</p>
-                                        <Button onClick={rollDice} disabled={isProcessing} className="mx-auto px-10 py-4 text-xl bg-green-600 hover:bg-green-700 text-white shadow-xl flex items-center gap-2 animate-bounce">
-                                            <span className="text-3xl">🎲</span> KOCOK DADU SEKARANG!
-                                        </Button>
-                                    </div>
-                                )}
-
-                                {/* TAMPILAN PROSES JALAN */}
-                                {!isTeacher && myPlayer?.currentState === 'moving' && (
-                                    <div className="bg-blue-50 border-2 border-blue-400 rounded-2xl p-5 shadow-md text-center">
-                                        <h3 className="text-lg font-bold text-blue-800 flex items-center justify-center gap-2">
-                                            <span className="animate-bounce">🏃</span> Sedang Melangkah...
+                                        <h3 className="text-xl font-bold text-green-800 mb-1">
+                                            {myPlayer?.currentState === 'moving' ? '🏃 Melangkah di Papan...' : '🎉 Jawaban Tepat!'}
                                         </h3>
-                                        <p className="text-sm text-blue-600">Perhatikan pergerakan pionmu di papan permainan!</p>
+                                        <p className="text-sm text-green-600 mb-4">
+                                            {myPlayer?.currentState === 'moving' ? `Dadu menunjukkan angka ${myPlayer.currentDice}. Perhatikan pergerakan pionmu!` : 'Waktunya melangkah di papan ular tangga.'}
+                                        </p>
+                                        
+                                        {myPlayer?.currentState === 'rolling' && (
+                                            <Button onClick={rollDice} disabled={isProcessing} className="mx-auto px-10 py-4 text-xl bg-green-600 hover:bg-green-700 text-white shadow-xl flex items-center gap-2 animate-bounce">
+                                                <span className="text-3xl">🎲</span> KOCOK DADU SEKARANG!
+                                            </Button>
+                                        )}
                                     </div>
                                 )}
 
@@ -1965,7 +1950,7 @@
                             </div>
 
                             {/* PAPAN ULAR TANGGA */}
-                            <div className="flex-1 flex items-center justify-center mb-6">
+                            <div className="flex-1 flex items-center justify-center pb-10">
                                 {GameBoard({ roomData })}
                             </div>
                         </div>
