@@ -141,7 +141,7 @@
             { id: 'a16', name: 'Student Girl - Sport', icon: '🏸', bg: 'bg-lime-500' },
             { id: 'a17', name: 'Robot Student', icon: '🤖', bg: 'bg-gray-400' },
             { id: 'a18', name: 'AI Assistant', icon: '👽', bg: 'bg-green-400' },
-            { id: 'a19', name: 'Astronaut', icon: '👨‍🚀', bg: 'bg-blue-900' },
+            { id: 'a19', name: 'Astronaut', icon: '👨‍‍🚀', bg: 'bg-blue-900' },
             { id: 'a20', name: 'Young Explorer', icon: '🕵', bg: 'bg-amber-600' },
             { id: 'a21', name: 'Islamic Scholar', icon: '🕌', bg: 'bg-emerald-700' },
             { id: 'a22', name: 'Math Genius', icon: '📐', bg: 'bg-indigo-600' },
@@ -284,6 +284,7 @@
                         ))}
 
                         <svg viewBox="0 0 100 100" className="absolute top-0 left-0 w-full h-full pointer-events-none drop-shadow-lg" style={{ zIndex: 5 }}>
+                            {/* Realistic Ladders */}
                             {Object.entries(currentBoardDef.ladders || {}).map(([start, end]) => {
                                 const sCoord = getCellCoords(parseInt(start));
                                 const eCoord = getCellCoords(end);
@@ -292,23 +293,37 @@
                                 const dx = eX - sX; const dy = eY - sY;
                                 const angle = Math.atan2(dy, dx) * (180 / Math.PI);
                                 const length = Math.sqrt(dx*dx + dy*dy);
+                                const rungsCount = Math.max(3, Math.floor(length / 4));
+                                
+                                const rungs = [];
+                                for (let i = 1; i < rungsCount; i++) {
+                                    const pos = (length / rungsCount) * i;
+                                    rungs.push(<line key={i} x1={pos} y1="-3" x2={pos} y2="3" stroke="#b45309" strokeWidth="1.2" strokeLinecap="round" />);
+                                }
+
                                 return (
                                     <g key={`l-${start}`} transform={`translate(${sX} ${sY}) rotate(${angle})`}>
-                                        <line x1="0" y1="-2" x2={length} y2="-2" stroke="#92400e" strokeWidth="1" strokeLinecap="round" />
-                                        <line x1="0" y1="2" x2={length} y2="2" stroke="#92400e" strokeWidth="1" strokeLinecap="round" />
+                                        <line x1="0" y1="-3.5" x2={length} y2="-3.5" stroke="#78350f" strokeWidth="1.5" strokeLinecap="round" />
+                                        <line x1="0" y1="3.5" x2={length} y2="3.5" stroke="#78350f" strokeWidth="1.5" strokeLinecap="round" />
+                                        {rungs}
                                     </g>
                                 );
                             })}
 
+                            {/* Realistic Snakes */}
                             {Object.entries(currentBoardDef.snakes || {}).map(([start, end]) => {
                                 const sCoord = getCellCoords(parseInt(start));
                                 const eCoord = getCellCoords(end);
                                 const sX = (sCoord.col * 10) + 5; const sY = (sCoord.row * 10) + 5;
                                 const eX = (eCoord.col * 10) + 5; const eY = (eCoord.row * 10) + 5;
                                 const dx = eX - sX; const dy = eY - sY;
-                                const path = `M ${sX} ${sY} Q ${sX + dx*0.5 + 5} ${sY + dy*0.5 - 5} ${eX} ${eY}`;
+                                const path = `M ${sX} ${sY} Q ${sX + dx*0.4 + 8} ${sY + dy*0.4 - 8} ${sX + dx*0.7} ${sY + dy*0.7} T ${eX} ${eY}`;
                                 return (
-                                    <path key={`s-${start}`} d={path} fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" />
+                                    <g key={`s-${start}`}>
+                                        <path d={path} fill="none" stroke="#047857" strokeWidth="3.2" strokeLinecap="round" />
+                                        <path d={path} fill="none" stroke="#10b981" strokeWidth="1.5" strokeDasharray="2,2" strokeLinecap="round" />
+                                        <circle cx={sX} cy={sY} r="2" fill="#ef4444" />
+                                    </g>
                                 );
                             })}
                         </svg>
@@ -513,7 +528,7 @@
                                             onClick={async () => await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomData.id), { 'config.isPaused': !isGamePaused })}
                                             className={`px-4 py-2 rounded-xl text-sm font-bold ${isGamePaused ? 'bg-green-500 text-white' : 'bg-amber-100 text-amber-700'}`}
                                         >
-                                            {isGamePaused ? '▶️ Lanjutkan Permainan' : '⏸️️ Jeda Permainan (Pause)'}
+                                            {isGamePaused ? '▶️ Lanjutkan Permainan' : '⏸ Jeda Permainan (Pause)'}
                                         </button>
                                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                                             {roomPlayers.map(p => (
@@ -1209,6 +1224,32 @@
             );
         }
 
+        class ErrorBoundary extends React.Component {
+            constructor(props) {
+                super(props);
+                this.state = { hasError: false, error: null };
+            }
+            static getDerivedStateFromError(error) {
+                return { hasError: true, error };
+            }
+            componentDidCatch(error, errorInfo) {
+                console.error("React Error Boundary caught:", error, errorInfo);
+            }
+            render() {
+                if (this.state.hasError) {
+                    return (
+                        <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-6 text-center">
+                            <div className="text-6xl mb-4">⚠️</div>
+                            <h1 className="text-2xl font-bold mb-2">Terjadi Kendala Tampilan</h1>
+                            <p className="text-slate-400 max-w-md mb-6 text-sm">{this.state.error?.toString() || "Gagal memuat komponen."}</p>
+                            <button onClick={() => window.location.reload()} className="px-6 py-3 bg-brand-gold text-white font-bold rounded-xl shadow-lg hover:bg-yellow-500">Muat Ulang Halaman</button>
+                        </div>
+                    );
+                }
+                return this.props.children;
+            }
+        }
+
         function ReactApp() {
             const { useState, useEffect, useMemo } = React;
 
@@ -1512,138 +1553,140 @@
             if (loading) return <div className="min-h-screen flex items-center justify-center text-brand-navy font-bold text-2xl">Memuat Sistem...</div>;
 
             return (
-                <div className="font-sans text-slate-800">
-                    {toast && (
-                        <div className={`fixed top-4 right-4 z-[100] px-6 py-3 rounded-xl shadow-lg text-white font-bold ${toast.type === 'error' ? 'bg-red-500' : toast.type === 'success' ? 'bg-green-500' : 'bg-brand-navy'}`}>
-                            {toast.msg}
-                        </div>
-                    )}
-                    {currentView === 'landing' && (
-                        <LandingScreenUI 
-                            setCurrentView={setCurrentView} 
-                            setTeacherModalOpen={setTeacherModalOpen} 
-                            setAdminModalOpen={setAdminModalOpen} 
-                        />
-                    )}
-                    {currentView === 'teacher_dash' && (
-                        <TeacherDashboard 
-                            currentTeacher={currentTeacher} 
-                            masterQuestionBank={masterQuestionBank} 
-                            setMasterQuestionBank={setMasterQuestionBank}
-                            selectedClass={selectedClass} 
-                            setSelectedClass={setSelectedClass} 
-                            createRoom={createRoom} 
-                            setCurrentView={setCurrentView} 
-                            showToast={showToast} 
-                            db={db} 
-                            appId={appId} 
-                            selectedBoardKey={selectedBoardKey} 
-                            setSelectedBoardKey={setSelectedBoardKey} 
-                            myRoomsList={myRoomsList} 
-                            resumeRoom={resumeRoom} 
-                        />
-                    )}
-                    {currentView === 'admin_dash' && (
-                        <AdminDashboard 
-                            teachersList={teachersList} 
-                            setCurrentView={setCurrentView} 
-                            db={db} 
-                            appId={appId} 
-                            showToast={showToast} 
-                        />
-                    )}
-                    {currentView === 'join_room' && (
-                        <StudentJoinUI 
-                            joinCode={joinCode} 
-                            setJoinCode={setJoinCode} 
-                            joinName={joinName} 
-                            setJoinName={setJoinName} 
-                            selectedAvatar={selectedAvatar} 
-                            setSelectedAvatar={setSelectedAvatar} 
-                            joinRoom={joinRoom} 
-                            setCurrentView={setCurrentView} 
-                            db={db} 
-                            appId={appId} 
-                        />
-                    )}
-                    {currentView === 'lobby' && (
-                        <LobbyUI 
-                            roomData={roomData} 
-                            userRole={userRole} 
-                            kickPlayer={kickPlayer} 
-                            startGame={startGame} 
-                            handleLeaveRoom={handleLeaveRoom} 
-                        />
-                    )}
-                    {currentView === 'playing' && (
-                        <GamePlay 
-                            roomData={roomData} 
-                            userRole={userRole} 
-                            user={user} 
-                            playerData={playerData} 
-                            db={db} 
-                            appId={appId} 
-                            showToast={showToast} 
-                            playSound={playSound} 
-                            boardCells={boardCells} 
-                            handleLeaveRoom={handleLeaveRoom} 
-                            kickPlayer={kickPlayer} 
-                            resetPlayerPosition={resetPlayerPosition} 
-                        />
-                    )}
-                    {currentView === 'finished' && (
-                        <ResultScreen 
-                            roomData={roomData} 
-                            handleLeaveRoom={handleLeaveRoom} 
-                        />
-                    )}
+                <ErrorBoundary>
+                    <div className="font-sans text-slate-800">
+                        {toast && (
+                            <div className={`fixed top-4 right-4 z-[100] px-6 py-3 rounded-xl shadow-lg text-white font-bold ${toast.type === 'error' ? 'bg-red-500' : toast.type === 'success' ? 'bg-green-500' : 'bg-brand-navy'}`}>
+                                {toast.msg}
+                            </div>
+                        )}
+                        {currentView === 'landing' && (
+                            <LandingScreenUI 
+                                setCurrentView={setCurrentView} 
+                                setTeacherModalOpen={setTeacherModalOpen} 
+                                setAdminModalOpen={setAdminModalOpen} 
+                            />
+                        )}
+                        {currentView === 'teacher_dash' && (
+                            <TeacherDashboard 
+                                currentTeacher={currentTeacher} 
+                                masterQuestionBank={masterQuestionBank} 
+                                setMasterQuestionBank={setMasterQuestionBank}
+                                selectedClass={selectedClass} 
+                                setSelectedClass={setSelectedClass} 
+                                createRoom={createRoom} 
+                                setCurrentView={setCurrentView} 
+                                showToast={showToast} 
+                                db={db} 
+                                appId={appId} 
+                                selectedBoardKey={selectedBoardKey} 
+                                setSelectedBoardKey={setSelectedBoardKey} 
+                                myRoomsList={myRoomsList} 
+                                resumeRoom={resumeRoom} 
+                            />
+                        )}
+                        {currentView === 'admin_dash' && (
+                            <AdminDashboard 
+                                teachersList={teachersList} 
+                                setCurrentView={setCurrentView} 
+                                db={db} 
+                                appId={appId} 
+                                showToast={showToast} 
+                            />
+                        )}
+                        {currentView === 'join_room' && (
+                            <StudentJoinUI 
+                                joinCode={joinCode} 
+                                setJoinCode={setJoinCode} 
+                                joinName={joinName} 
+                                setJoinName={setJoinName} 
+                                selectedAvatar={selectedAvatar} 
+                                setSelectedAvatar={setSelectedAvatar} 
+                                joinRoom={joinRoom} 
+                                setCurrentView={setCurrentView} 
+                                db={db} 
+                                appId={appId} 
+                            />
+                        )}
+                        {currentView === 'lobby' && (
+                            <LobbyUI 
+                                roomData={roomData} 
+                                userRole={userRole} 
+                                kickPlayer={kickPlayer} 
+                                startGame={startGame} 
+                                handleLeaveRoom={handleLeaveRoom} 
+                            />
+                        )}
+                        {currentView === 'playing' && (
+                            <GamePlay 
+                                roomData={roomData} 
+                                userRole={userRole} 
+                                user={user} 
+                                playerData={playerData} 
+                                db={db} 
+                                appId={appId} 
+                                showToast={showToast} 
+                                playSound={playSound} 
+                                boardCells={boardCells} 
+                                handleLeaveRoom={handleLeaveRoom} 
+                                kickPlayer={kickPlayer} 
+                                resetPlayerPosition={resetPlayerPosition} 
+                            />
+                        )}
+                        {currentView === 'finished' && (
+                            <ResultScreen 
+                                roomData={roomData} 
+                                handleLeaveRoom={handleLeaveRoom} 
+                            />
+                        )}
 
-                    {teacherModalOpen && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 backdrop-blur-sm">
-                            <div className="bg-white rounded-3xl p-6 md:p-8 max-w-md w-full shadow-2xl">
-                                <h3 className="text-2xl font-bold text-brand-navy mb-2">Autentikasi Guru</h3>
-                                <p className="text-slate-500 text-sm mb-4">Pilih nama Anda dan masukkan password</p>
-                                <select value={teacherSelectedId} onChange={e => setTeacherSelectedId(e.target.value)} className="w-full p-3 border-2 rounded-xl mb-4 font-medium outline-none bg-white">
-                                    <option value="">-- Pilih Guru / Mapel --</option>
-                                    {teachersList.map(t => <option key={t.id} value={t.id}>{t.name} ({t.subject})</option>)}
-                                </select>
-                                <input type="password" value={teacherPass} onChange={e => setTeacherPass(e.target.value)} placeholder="Password..." className="w-full p-3 border-2 rounded-xl mb-4 font-medium outline-none" autoFocus />
-                                <div className="flex gap-3">
-                                    <Button variant="outline" className="flex-1" onClick={() => setTeacherModalOpen(false)}>Batal</Button>
-                                    <Button className="flex-1" onClick={() => {
-                                        const t = teachersList.find(x => x.id === teacherSelectedId);
-                                        if (t && teacherPass === t.pass) {
-                                            setCurrentTeacher(t); setUserRole('teacher'); setCurrentView('teacher_dash'); setTeacherModalOpen(false); setTeacherPass('');
-                                        } else { showToast("Password salah!", "error"); }
-                                    }}>Masuk</Button>
+                        {teacherModalOpen && (
+                            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 backdrop-blur-sm">
+                                <div className="bg-white rounded-3xl p-6 md:p-8 max-w-md w-full shadow-2xl">
+                                    <h3 className="text-2xl font-bold text-brand-navy mb-2">Autentikasi Guru</h3>
+                                    <p className="text-slate-500 text-sm mb-4">Pilih nama Anda dan masukkan password</p>
+                                    <select value={teacherSelectedId} onChange={e => setTeacherSelectedId(e.target.value)} className="w-full p-3 border-2 rounded-xl mb-4 font-medium outline-none bg-white">
+                                        <option value="">-- Pilih Guru / Mapel --</option>
+                                        {teachersList.map(t => <option key={t.id} value={t.id}>{t.name} ({t.subject})</option>)}
+                                    </select>
+                                    <input type="password" value={teacherPass} onChange={e => setTeacherPass(e.target.value)} placeholder="Password..." className="w-full p-3 border-2 rounded-xl mb-4 font-medium outline-none" autoFocus />
+                                    <div className="flex gap-3">
+                                        <Button variant="outline" className="flex-1" onClick={() => setTeacherModalOpen(false)}>Batal</Button>
+                                        <Button className="flex-1" onClick={() => {
+                                            const t = teachersList.find(x => x.id === teacherSelectedId);
+                                            if (t && teacherPass === t.pass) {
+                                                setCurrentTeacher(t); setUserRole('teacher'); setCurrentView('teacher_dash'); setTeacherModalOpen(false); setTeacherPass('');
+                                            } else { showToast("Password salah!", "error"); }
+                                        }}>Masuk</Button>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    )}
+                        )}
 
-                    {adminModalOpen && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 backdrop-blur-sm">
-                            <div className="bg-white rounded-3xl p-6 md:p-8 max-w-md w-full shadow-2xl">
-                                <h3 className="text-2xl font-bold text-brand-navy mb-2">Panel Admin</h3>
-                                <input type="text" value={adminUserLogin} onChange={e => setAdminUserLogin(e.target.value)} placeholder="Username..." className="w-full p-3 border-2 rounded-xl mb-3 outline-none" autoFocus />
-                                <input type="password" value={adminPassLogin} onChange={e => setAdminPassLogin(e.target.value)} placeholder="Password..." className="w-full p-3 border-2 rounded-xl mb-4 outline-none" />
-                                <div className="flex gap-3">
-                                    <Button variant="outline" className="flex-1" onClick={() => setAdminModalOpen(false)}>Batal</Button>
-                                    <Button className="flex-1 bg-purple-600 hover:bg-purple-700" onClick={async () => {
-                                        try {
-                                            const snap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'admin_config'));
-                                            let u = 'admin'; let p = 'admin123';
-                                            if(snap.exists()) { u = snap.data().username || 'admin'; p = snap.data().password || 'admin123'; }
-                                            if (adminUserLogin === u && adminPassLogin === p) {
-                                                setUserRole('admin'); setCurrentView('admin_dash'); setAdminModalOpen(false);
-                                            } else { showToast("Login gagal", "error"); }
-                                        } catch(e) { showToast("Gagal login", "error"); }
-                                    }}>Masuk</Button>
+                        {adminModalOpen && (
+                            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 backdrop-blur-sm">
+                                <div className="bg-white rounded-3xl p-6 md:p-8 max-w-md w-full shadow-2xl">
+                                    <h3 className="text-2xl font-bold text-brand-navy mb-2">Panel Admin</h3>
+                                    <input type="text" value={adminUserLogin} onChange={e => setAdminUserLogin(e.target.value)} placeholder="Username..." className="w-full p-3 border-2 rounded-xl mb-3 outline-none" autoFocus />
+                                    <input type="password" value={adminPassLogin} onChange={e => setAdminPassLogin(e.target.value)} placeholder="Password..." className="w-full p-3 border-2 rounded-xl mb-4 outline-none" />
+                                    <div className="flex gap-3">
+                                        <Button variant="outline" className="flex-1" onClick={() => setAdminModalOpen(false)}>Batal</Button>
+                                        <Button className="flex-1 bg-purple-600 hover:bg-purple-700" onClick={async () => {
+                                            try {
+                                                const snap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'admin_config'));
+                                                let u = 'admin'; let p = 'admin123';
+                                                if(snap.exists()) { u = snap.data().username || 'admin'; p = snap.data().password || 'admin123'; }
+                                                if (adminUserLogin === u && adminPassLogin === p) {
+                                                    setUserRole('admin'); setCurrentView('admin_dash'); setAdminModalOpen(false);
+                                                } else { showToast("Login gagal", "error"); }
+                                            } catch(e) { showToast("Gagal login", "error"); }
+                                        }}>Masuk</Button>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    )}
-                </div>
+                        )}
+                    </div>
+                </ErrorBoundary>
             );
         }
 
