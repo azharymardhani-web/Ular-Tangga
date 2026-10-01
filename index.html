@@ -478,10 +478,10 @@
                         showToast("Benar! Tombol kocok dadu aktif.", "success");
                     } else {
                         playSound('wrong');
-                        showToast("Kurang tepat! Poin -25.", "error");
+                        showToast("Kurang tepat!", "error");
                     }
 
-                    const newScore = isCorrect ? Number(activePlayer.score || 0) + 100 : Number(activePlayer.score || 0) - 25;
+                    const newScore = isCorrect ? Number(activePlayer.score || 0) + 100 : Number(activePlayer.score || 0);
                     const newCorrect = isCorrect ? Number(activePlayer.correct || 0) + 1 : Number(activePlayer.correct || 0);
                     const newWrong = !isCorrect ? Number(activePlayer.wrong || 0) + 1 : Number(activePlayer.wrong || 0);
                     let newPos = Number(activePlayer.position || 1);
