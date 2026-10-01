@@ -50,25 +50,21 @@
             grid-template-rows: repeat(10, 1fr);
             width: 100%;
             aspect-ratio: 1 / 1;
-            background: #1e293b;
-            gap: 2px;
-            padding: 6px;
-            border: 6px solid #0F172A;
+            background: #fff;
+            border: 4px solid #0F172A;
             border-radius: 12px;
-            box-shadow: 0 15px 35px rgba(0,0,0,0.4), inset 0 2px 10px rgba(255,255,255,0.1);
+            overflow: hidden;
             position: relative;
         }
         .board-cell {
-            border-radius: 4px;
+            border: 1px solid rgba(0,0,0,0.1);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-weight: 800;
-            font-size: 1.2rem;
-            color: rgba(0,0,0,0.5);
+            font-weight: bold;
+            font-size: 1rem;
+            color: rgba(0,0,0,0.35);
             position: relative;
-            box-shadow: inset 0 2px 5px rgba(255,255,255,0.6), inset 0 -2px 5px rgba(0,0,0,0.15);
-            transition: filter 0.3s;
         }
         .player-token {
             position: absolute;
@@ -78,11 +74,9 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.3rem;
-            background-image: linear-gradient(135deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0) 50%, rgba(0,0,0,0.2) 100%);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5), inset 0 2px 4px rgba(255, 255, 255, 0.8);
-            border: 2px solid rgba(255,255,255,0.8);
-            transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+            font-size: 1.25rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
             z-index: 10;
         }
         .offset-0 { transform: translate(-20%, -20%); z-index: 15; }
@@ -100,7 +94,7 @@
     <script type="text/babel" data-type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc, collection, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc, collection, addDoc, deleteDoc, runTransaction } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'mtsn14-snake-ladder-app';
         const firebaseConfig = {
@@ -280,39 +274,16 @@
             const cellColors = currentBoardDef.cellColors || ['bg-rose-200', 'bg-amber-200', 'bg-emerald-200', 'bg-sky-200', 'bg-violet-200'];
             const roomPlayers = roomData.players || [];
 
-            // Pseudo-random helper to make sure snakes curve exactly the same way on every render
-            const pseudoRandom = (seed) => {
-                const x = Math.sin(seed) * 10000;
-                return x - Math.floor(x);
-            };
-
             return (
-                <div className={`relative w-full aspect-square max-w-lg mx-auto shadow-[0_20px_50px_rgba(0,0,0,0.3)] rounded-2xl p-2 ${currentBoardDef.bgTheme || 'bg-white'}`}>
+                <div className={`relative w-full aspect-square max-w-lg mx-auto shadow-2xl rounded-xl p-2 ${currentBoardDef.bgTheme || 'bg-white'}`}>
                     <div className="board-grid">
                         {boardCells.map((c) => (
-                            <div key={c.num} className={`board-cell ${cellColors[c.num % cellColors.length]}`}>
-                                <span className="absolute top-1 left-1 text-[10px] sm:text-xs font-black bg-white/70 text-slate-800 px-1.5 py-0.5 rounded shadow-sm backdrop-blur-md z-0">{c.num}</span>
+                            <div key={c.num} className={`board-cell ${cellColors[c.num % cellColors.length]} relative border border-white/40 shadow-inner`}>
+                                <span className="absolute top-1 left-1 text-[9px] sm:text-xs font-bold opacity-75">{c.num}</span>
                             </div>
                         ))}
 
-                        <svg viewBox="0 0 100 100" className="absolute top-0 left-0 w-full h-full pointer-events-none drop-shadow-2xl" style={{ zIndex: 5 }}>
-                            <defs>
-                                <filter id="board-shadow" x="-20%" y="-20%" width="150%" height="150%">
-                                    <feDropShadow dx="1" dy="2" stdDeviation="1.5" floodColor="#000" floodOpacity="0.6" />
-                                </filter>
-                                <linearGradient id="wood-ladder" x1="0%" y1="0%" x2="100%" y2="0%">
-                                    <stop offset="0%" stopColor="#78350f" />
-                                    <stop offset="20%" stopColor="#b45309" />
-                                    <stop offset="80%" stopColor="#b45309" />
-                                    <stop offset="100%" stopColor="#451a03" />
-                                </linearGradient>
-                                <linearGradient id="snake-skin" x1="0%" y1="0%" x2="100%" y2="100%">
-                                    <stop offset="0%" stopColor="#059669" />
-                                    <stop offset="50%" stopColor="#10b981" />
-                                    <stop offset="100%" stopColor="#047857" />
-                                </linearGradient>
-                            </defs>
-
+                        <svg viewBox="0 0 100 100" className="absolute top-0 left-0 w-full h-full pointer-events-none drop-shadow-lg" style={{ zIndex: 5 }}>
                             {/* Realistic Ladders */}
                             {Object.entries(currentBoardDef.ladders || {}).map(([start, end]) => {
                                 const sCoord = getCellCoords(parseInt(start));
@@ -327,18 +298,13 @@
                                 const rungs = [];
                                 for (let i = 1; i < rungsCount; i++) {
                                     const pos = (length / rungsCount) * i;
-                                    rungs.push(
-                                        <rect key={i} x={pos - 0.75} y="-3" width="1.5" height="6" fill="url(#wood-ladder)" rx="0.5" />
-                                    );
+                                    rungs.push(<line key={i} x1={pos} y1="-3" x2={pos} y2="3" stroke="#b45309" strokeWidth="1.2" strokeLinecap="round" />);
                                 }
 
                                 return (
-                                    <g key={`l-${start}`} transform={`translate(${sX} ${sY}) rotate(${angle})`} filter="url(#board-shadow)">
-                                        {/* Left Rail */}
-                                        <rect x="0" y="-4" width={length} height="2" fill="url(#wood-ladder)" rx="1" />
-                                        {/* Right Rail */}
-                                        <rect x="0" y="2" width={length} height="2" fill="url(#wood-ladder)" rx="1" />
-                                        {/* Rungs */}
+                                    <g key={`l-${start}`} transform={`translate(${sX} ${sY}) rotate(${angle})`}>
+                                        <line x1="0" y1="-3.5" x2={length} y2="-3.5" stroke="#78350f" strokeWidth="1.5" strokeLinecap="round" />
+                                        <line x1="0" y1="3.5" x2={length} y2="3.5" stroke="#78350f" strokeWidth="1.5" strokeLinecap="round" />
                                         {rungs}
                                     </g>
                                 );
@@ -348,45 +314,15 @@
                             {Object.entries(currentBoardDef.snakes || {}).map(([start, end]) => {
                                 const sCoord = getCellCoords(parseInt(start));
                                 const eCoord = getCellCoords(end);
-                                const sX = (sCoord.col * 10) + 5; const sY = (sCoord.row * 10) + 5; // Head
-                                const eX = (eCoord.col * 10) + 5; const eY = (eCoord.row * 10) + 5; // Tail
+                                const sX = (sCoord.col * 10) + 5; const sY = (sCoord.row * 10) + 5;
+                                const eX = (eCoord.col * 10) + 5; const eY = (eCoord.row * 10) + 5;
                                 const dx = eX - sX; const dy = eY - sY;
-                                
-                                // Cubic Bezier curve control points generated deterministically
-                                const rand1 = pseudoRandom(parseInt(start) + parseInt(end));
-                                const rand2 = pseudoRandom(parseInt(start) * parseInt(end));
-                                const ctrl1X = sX + dx * 0.3 + (rand1 > 0.5 ? 8 : -8);
-                                const ctrl1Y = sY + dy * 0.3 + (rand1 > 0.5 ? -8 : 8);
-                                const ctrl2X = sX + dx * 0.7 + (rand2 > 0.5 ? -8 : 8);
-                                const ctrl2Y = sY + dy * 0.7 + (rand2 > 0.5 ? 8 : -8);
-                                const path = `M ${sX} ${sY} C ${ctrl1X} ${ctrl1Y}, ${ctrl2X} ${ctrl2Y}, ${eX} ${eY}`;
-                                
-                                // Calculate angle for snake head to point correctly
-                                const headAngle = Math.atan2(ctrl1Y - sY, ctrl1X - sX) * (180 / Math.PI);
-
+                                const path = `M ${sX} ${sY} Q ${sX + dx*0.4 + 8} ${sY + dy*0.4 - 8} ${sX + dx*0.7} ${sY + dy*0.7} T ${eX} ${eY}`;
                                 return (
-                                    <g key={`s-${start}`} filter="url(#board-shadow)">
-                                        {/* Outer dark border (thickness) */}
-                                        <path d={path} fill="none" stroke="#064e3b" strokeWidth="3.5" strokeLinecap="round" />
-                                        {/* Inner snake skin */}
-                                        <path d={path} fill="none" stroke="url(#snake-skin)" strokeWidth="2.5" strokeLinecap="round" />
-                                        {/* Snake Pattern (scales) */}
-                                        <path d={path} fill="none" stroke="#6ee7b7" strokeWidth="2.5" strokeDasharray="1, 4" strokeLinecap="round" />
-                                        
-                                        {/* Tail End */}
-                                        <circle cx={eX} cy={eY} r="1" fill="#064e3b" />
-                                        
-                                        {/* Detailed Snake Head */}
-                                        <g transform={`translate(${sX} ${sY}) rotate(${headAngle})`}>
-                                            <ellipse cx="0" cy="0" rx="3.5" ry="2.5" fill="#047857" stroke="#064e3b" strokeWidth="0.5" />
-                                            {/* Eyes */}
-                                            <circle cx="-1" cy="-1.4" r="0.7" fill="#fde047" />
-                                            <circle cx="-1" cy="1.4" r="0.7" fill="#fde047" />
-                                            <circle cx="-1" cy="-1.4" r="0.3" fill="#000" />
-                                            <circle cx="-1" cy="1.4" r="0.3" fill="#000" />
-                                            {/* Forked Tongue */}
-                                            <path d="M -3.5 0 L -5.5 0 M -5.5 0 L -6.5 -1.2 M -5.5 0 L -6.5 1.2" fill="none" stroke="#ef4444" strokeWidth="0.5" strokeLinecap="round" />
-                                        </g>
+                                    <g key={`s-${start}`}>
+                                        <path d={path} fill="none" stroke="#047857" strokeWidth="3.2" strokeLinecap="round" />
+                                        <path d={path} fill="none" stroke="#10b981" strokeWidth="1.5" strokeDasharray="2,2" strokeLinecap="round" />
+                                        <circle cx={sX} cy={sY} r="2" fill="#ef4444" />
                                     </g>
                                 );
                             })}
@@ -453,16 +389,17 @@
                 if (!activePlayer || !db || !user) return;
                 try {
                     const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomData.id);
-                    const snap = await getDoc(roomRef);
-                    if (snap.exists()) {
+                    await runTransaction(db, async (transaction) => {
+                        const snap = await transaction.get(roomRef);
+                        if (!snap.exists()) return;
                         const data = snap.data();
                         const players = [...(data.players || [])];
                         const pIndex = players.findIndex(p => p.id === user.uid);
                         if (pIndex !== -1) {
                             players[pIndex] = { ...players[pIndex], ...updatedFields };
-                            await updateDoc(roomRef, { players });
+                            transaction.update(roomRef, { players });
                         }
-                    }
+                    });
                 } catch (e) {
                     console.error("Sync error", e);
                 }
@@ -1568,31 +1505,46 @@
                 if (!rCode.startsWith('MT14-') && rCode.length >= 4) rCode = 'MT14-' + rCode;
                 const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', rCode);
                 try {
-                    const snap = await getDoc(roomRef);
-                    if (!snap.exists()) { showToast(`Room ${rCode} tidak ditemukan!`, "error"); return; }
-                    const rData = snap.data();
-                    if (rData.status !== 'lobby') { showToast("Permainan sudah dimulai!", "error"); return; }
-                    if ((rData.players || []).some(p => p.avatarId === avatarId)) { showToast("Avatar sudah dipilih siswa lain!", "error"); return; }
+                    let success = false;
+                    let newPlayer = null;
+                    
+                    await runTransaction(db, async (transaction) => {
+                        const snap = await transaction.get(roomRef);
+                        if (!snap.exists()) { throw new Error("NOT_FOUND"); }
+                        const rData = snap.data();
+                        if (rData.status !== 'lobby') { throw new Error("STARTED"); }
+                        if ((rData.players || []).some(p => p.avatarId === avatarId)) { throw new Error("TAKEN"); }
 
-                    const newPlayer = {
-                        id: user.uid, name: playerName, avatarId: avatarId,
-                        position: 1, score: 0, correct: 0, wrong: 0, currentState: 'answering'
-                    };
-                    await updateDoc(roomRef, { players: [...(rData.players || []), newPlayer] });
+                        newPlayer = {
+                            id: user.uid, name: playerName, avatarId: avatarId,
+                            position: 1, score: 0, correct: 0, wrong: 0, currentState: 'answering'
+                        };
+                        transaction.update(roomRef, { players: [...(rData.players || []), newPlayer] });
+                        success = true;
+                    });
 
-                    setRoomId(rCode); setUserRole('student'); setPlayerData(newPlayer); setCurrentView('lobby');
-                    localStorage.setItem('mt14_roomId', rCode); localStorage.setItem('mt14_role', 'student');
-                } catch (e) { showToast("Gagal bergabung", "error"); }
+                    if (success && newPlayer) {
+                        setRoomId(rCode); setUserRole('student'); setPlayerData(newPlayer); setCurrentView('lobby');
+                        localStorage.setItem('mt14_roomId', rCode); localStorage.setItem('mt14_role', 'student');
+                    }
+                } catch (e) { 
+                    if(e.message === "NOT_FOUND") showToast(`Room ${rCode} tidak ditemukan!`, "error");
+                    else if(e.message === "STARTED") showToast("Permainan sudah dimulai!", "error");
+                    else if(e.message === "TAKEN") showToast("Avatar sudah dipilih siswa lain!", "error");
+                    else showToast("Gagal bergabung", "error"); 
+                }
             };
 
             const handleLeaveRoom = async () => {
                 if (userRole === 'student' && roomId && user) {
                     try {
                         const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
-                        const snap = await getDoc(roomRef);
-                        if (snap.exists()) {
-                            await updateDoc(roomRef, { players: (snap.data().players || []).filter(p => p.id !== user.uid) });
-                        }
+                        await runTransaction(db, async (transaction) => {
+                            const snap = await transaction.get(roomRef);
+                            if (snap.exists()) {
+                                transaction.update(roomRef, { players: (snap.data().players || []).filter(p => p.id !== user.uid) });
+                            }
+                        });
                     } catch (e) {}
                 }
                 setRoomId(null); setRoomData(null); setPlayerData(null); 
@@ -1604,10 +1556,12 @@
                 if (userRole !== 'teacher' || !roomId) return;
                 try {
                     const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
-                    const snap = await getDoc(roomRef);
-                    if (snap.exists()) {
-                        await updateDoc(roomRef, { players: (snap.data().players || []).filter(p => p.id !== playerId) });
-                    }
+                    await runTransaction(db, async (transaction) => {
+                        const snap = await transaction.get(roomRef);
+                        if (snap.exists()) {
+                            transaction.update(roomRef, { players: (snap.data().players || []).filter(p => p.id !== playerId) });
+                        }
+                    });
                 } catch (e) {}
             };
 
@@ -1615,17 +1569,19 @@
                 if (userRole !== 'teacher' || !roomId) return;
                 try {
                     const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
-                    const snap = await getDoc(roomRef);
-                    if (snap.exists()) {
-                        let players = [...(snap.data().players || [])];
-                        let pIndex = players.findIndex(p => p.id === playerId);
-                        if(pIndex !== -1) {
-                            players[pIndex].position = 1;
-                            players[pIndex].currentState = 'answering';
-                            await updateDoc(roomRef, { players: players });
-                            showToast("Posisi siswa direset ke awal", "info");
+                    await runTransaction(db, async (transaction) => {
+                        const snap = await transaction.get(roomRef);
+                        if (snap.exists()) {
+                            let players = [...(snap.data().players || [])];
+                            let pIndex = players.findIndex(p => p.id === playerId);
+                            if(pIndex !== -1) {
+                                players[pIndex].position = 1;
+                                players[pIndex].currentState = 'answering';
+                                transaction.update(roomRef, { players: players });
+                            }
                         }
-                    }
+                    });
+                    showToast("Posisi siswa direset ke awal", "info");
                 } catch (e) {}
             };
 
