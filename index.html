@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MTsN 14 Jakarta - Digital Snake & Ladder</title>
     
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react@aaa18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -18,7 +18,7 @@
                     fontFamily: {
                         sans: ['Inter', 'sans-serif'],
                         display: ['Poppins', 'sans-serif'],
-                    },
+                    },a
                     colors: {
                         brand: {
                             navy: '#0F172A',
@@ -478,10 +478,10 @@
                         showToast("Benar! Tombol kocok dadu aktif.", "success");
                     } else {
                         playSound('wrong');
-                        showToast("Kurang tepat!", "error");
+                        showToast("Kurang tepat! Poin -25.", "error");
                     }
 
-                    const newScore = isCorrect ? Number(activePlayer.score || 0) + 100 : Number(activePlayer.score || 0);
+                    const newScore = isCorrect ? Number(activePlayer.score || 0) + 100 : Number(activePlayer.score || 0) - 25;
                     const newCorrect = isCorrect ? Number(activePlayer.correct || 0) + 1 : Number(activePlayer.correct || 0);
                     const newWrong = !isCorrect ? Number(activePlayer.wrong || 0) + 1 : Number(activePlayer.wrong || 0);
                     let newPos = Number(activePlayer.position || 1);
