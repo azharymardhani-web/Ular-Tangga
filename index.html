@@ -94,7 +94,7 @@
     <script type="text/babel" data-type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc, collection, addDoc, deleteDoc, runTransaction } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc, collection, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'mtsn14-snake-ladder-app';
         const firebaseConfig = {
@@ -389,17 +389,16 @@
                 if (!activePlayer || !db || !user) return;
                 try {
                     const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomData.id);
-                    await runTransaction(db, async (transaction) => {
-                        const snap = await transaction.get(roomRef);
-                        if (!snap.exists()) return;
+                    const snap = await getDoc(roomRef);
+                    if (snap.exists()) {
                         const data = snap.data();
                         const players = [...(data.players || [])];
                         const pIndex = players.findIndex(p => p.id === user.uid);
                         if (pIndex !== -1) {
                             players[pIndex] = { ...players[pIndex], ...updatedFields };
-                            transaction.update(roomRef, { players });
+                            await updateDoc(roomRef, { players });
                         }
-                    });
+                    }
                 } catch (e) {
                     console.error("Sync error", e);
                 }
@@ -1500,86 +1499,36 @@
             };
 
             const joinRoom = async (code, playerName, avatarId) => {
-                if (!user) {
-                    showToast("Menghubungkan ke server... Silakan tunggu.", "error");
-                    return;
-                }
-                if (!playerName || !playerName.trim()) {
-                    showToast("Harap isi Nama Lengkap Anda!", "error");
-                    return;
-                }
-                if (!avatarId) {
-                    showToast("Silakan pilih Avatar terlebih dahulu!", "error");
-                    return;
-                }
-
+                if (!user) return;
                 let rCode = code.toUpperCase().trim();
                 if (!rCode.startsWith('MT14-') && rCode.length >= 4) rCode = 'MT14-' + rCode;
                 const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', rCode);
                 try {
-                    let success = false;
-                    let finalPlayer = null;
-                    let existingStatus = null;
-                    
-                    await runTransaction(db, async (transaction) => {
-                        const snap = await transaction.get(roomRef);
-                        if (!snap.exists()) { throw new Error("NOT_FOUND"); }
-                        
-                        const rData = snap.data();
-                        existingStatus = rData.status;
-                        const players = rData.players || [];
+                    const snap = await getDoc(roomRef);
+                    if (!snap.exists()) { showToast(`Room ${rCode} tidak ditemukan!`, "error"); return; }
+                    const rData = snap.data();
+                    if (rData.status !== 'lobby') { showToast("Permainan sudah dimulai!", "error"); return; }
+                    if ((rData.players || []).some(p => p.avatarId === avatarId)) { showToast("Avatar sudah dipilih siswa lain!", "error"); return; }
 
-                        // Cek apakah siswa ini sudah ada di dalam room (Deteksi Re-Join)
-                        const existingPlayerIdx = players.findIndex(p => p.id === user.uid);
+                    const newPlayer = {
+                        id: user.uid, name: playerName, avatarId: avatarId,
+                        position: 1, score: 0, correct: 0, wrong: 0, currentState: 'answering'
+                    };
+                    await updateDoc(roomRef, { players: [...(rData.players || []), newPlayer] });
 
-                        if (existingPlayerIdx !== -1) {
-                            finalPlayer = players[existingPlayerIdx];
-                            success = true; // Izinkan masuk kembali meskipun game sudah mulai
-                        } else {
-                            if (rData.status !== 'lobby') { throw new Error("STARTED"); }
-                            if (players.some(p => p.avatarId === avatarId)) { throw new Error("TAKEN"); }
-                            if (players.length >= (rData.config?.maxPlayers || 40)) { throw new Error("FULL"); }
-
-                            finalPlayer = {
-                                id: user.uid, name: playerName.trim(), avatarId: avatarId,
-                                position: 1, score: 0, correct: 0, wrong: 0, currentState: 'answering'
-                            };
-                            transaction.update(roomRef, { players: [...players, finalPlayer] });
-                            success = true;
-                        }
-                    });
-
-                    if (success && finalPlayer) {
-                        setRoomId(rCode); 
-                        setUserRole('student'); 
-                        setPlayerData(finalPlayer); 
-                        setCurrentView(existingStatus === 'playing' ? 'playing' : 'lobby');
-                        localStorage.setItem('mt14_roomId', rCode); 
-                        localStorage.setItem('mt14_role', 'student');
-                    }
-                } catch (e) { 
-                    const msg = e.message || "";
-                    if(msg.includes("NOT_FOUND")) showToast(`Room ${rCode} tidak ditemukan!`, "error");
-                    else if(msg.includes("STARTED")) showToast("Gagal! Ujian sudah dimulai oleh Guru.", "error");
-                    else if(msg.includes("TAKEN")) showToast("Avatar sudah dipakai siswa lain!", "error");
-                    else if(msg.includes("FULL")) showToast("Room sudah penuh!", "error");
-                    else {
-                        console.error(e);
-                        showToast("Terjadi kendala jaringan. Silakan coba lagi.", "error"); 
-                    }
-                }
+                    setRoomId(rCode); setUserRole('student'); setPlayerData(newPlayer); setCurrentView('lobby');
+                    localStorage.setItem('mt14_roomId', rCode); localStorage.setItem('mt14_role', 'student');
+                } catch (e) { showToast("Gagal bergabung", "error"); }
             };
 
             const handleLeaveRoom = async () => {
                 if (userRole === 'student' && roomId && user) {
                     try {
                         const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
-                        await runTransaction(db, async (transaction) => {
-                            const snap = await transaction.get(roomRef);
-                            if (snap.exists()) {
-                                transaction.update(roomRef, { players: (snap.data().players || []).filter(p => p.id !== user.uid) });
-                            }
-                        });
+                        const snap = await getDoc(roomRef);
+                        if (snap.exists()) {
+                            await updateDoc(roomRef, { players: (snap.data().players || []).filter(p => p.id !== user.uid) });
+                        }
                     } catch (e) {}
                 }
                 setRoomId(null); setRoomData(null); setPlayerData(null); 
@@ -1591,12 +1540,10 @@
                 if (userRole !== 'teacher' || !roomId) return;
                 try {
                     const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
-                    await runTransaction(db, async (transaction) => {
-                        const snap = await transaction.get(roomRef);
-                        if (snap.exists()) {
-                            transaction.update(roomRef, { players: (snap.data().players || []).filter(p => p.id !== playerId) });
-                        }
-                    });
+                    const snap = await getDoc(roomRef);
+                    if (snap.exists()) {
+                        await updateDoc(roomRef, { players: (snap.data().players || []).filter(p => p.id !== playerId) });
+                    }
                 } catch (e) {}
             };
 
@@ -1604,19 +1551,17 @@
                 if (userRole !== 'teacher' || !roomId) return;
                 try {
                     const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
-                    await runTransaction(db, async (transaction) => {
-                        const snap = await transaction.get(roomRef);
-                        if (snap.exists()) {
-                            let players = [...(snap.data().players || [])];
-                            let pIndex = players.findIndex(p => p.id === playerId);
-                            if(pIndex !== -1) {
-                                players[pIndex].position = 1;
-                                players[pIndex].currentState = 'answering';
-                                transaction.update(roomRef, { players: players });
-                            }
+                    const snap = await getDoc(roomRef);
+                    if (snap.exists()) {
+                        let players = [...(snap.data().players || [])];
+                        let pIndex = players.findIndex(p => p.id === playerId);
+                        if(pIndex !== -1) {
+                            players[pIndex].position = 1;
+                            players[pIndex].currentState = 'answering';
+                            await updateDoc(roomRef, { players: players });
+                            showToast("Posisi siswa direset ke awal", "info");
                         }
-                    });
-                    showToast("Posisi siswa direset ke awal", "info");
+                    }
                 } catch (e) {}
             };
 
