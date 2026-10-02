@@ -1475,10 +1475,11 @@
                 restoreSession();
             }, [user]);
 
-            // Isolated data listener for Teacher Dashboard (Runs ONLY when user is teacher and in teacher dash)
+            // Listener Database Pintar (Terpisah sesuai peran agar tidak Overload, tapi menjamin data muncul)
             useEffect(() => {
-                if (!user || userRole !== 'teacher' || currentView !== 'teacher_dash') return;
+                if (!user || !db || !appId) return;
                 
+                // 1. Ambil Daftar Guru secara Global (Wajib untuk Modal Login & Admin)
                 const unsubTeachers = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'teachers'), async (snap) => {
                     const loaded = [];
                     snap.forEach(d => loaded.push({ id: d.id, ...d.data() }));
@@ -1496,30 +1497,36 @@
                     }
                 }, () => {});
 
-                const unsubQuestions = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'questions'), async (snap) => {
-                    const loaded = [];
-                    snap.forEach(d => loaded.push({ id: d.id, ...d.data() }));
-                    if (loaded.length === 0 && !window.__isQuestionsSeeded) {
-                        window.__isQuestionsSeeded = true;
-                        const defaultQ = [
-                            { subject: 'Informatika', classLevel: 'Kelas 8 (VIII)', material: 'Hardware', level: 'Sedang', q: 'Apa fungsi utama RAM?', options: ['Penyimpanan Permanen', 'Penyimpanan Sementara', 'Pemrosesan Grafik', 'Koneksi Internet'], answer: 1 },
-                            { subject: 'Tahfidz', classLevel: 'Kelas 7 (VII)', material: 'Al-Qur`an', level: 'Mudah', q: 'Surah Al-Fatihah terdiri dari berapa ayat?', options: ['5 Ayat', '6 Ayat', '7 Ayat', '8 Ayat'], answer: 2 },
-                        ];
-                        const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'questions');
-                        for (let q of defaultQ) { await addDoc(colRef, q); }
-                    } else {
-                        setMasterQuestionBank(loaded);
-                    }
-                }, () => {});
+                let unsubQuestions = () => {};
+                let unsubRooms = () => {};
 
-                const unsubRooms = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'rooms'), (snap) => {
-                    const rList = [];
-                    snap.forEach(d => rList.push({ id: d.id, ...d.data() }));
-                    setMyRoomsList(rList.filter(r => r.hostId === user.uid));
-                }, () => {});
+                // 2. Ambil Bank Soal & Daftar Room HANYA JIKA sudah masuk sebagai Guru
+                if (userRole === 'teacher') {
+                    unsubQuestions = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'questions'), async (snap) => {
+                        const loaded = [];
+                        snap.forEach(d => loaded.push({ id: d.id, ...d.data() }));
+                        if (loaded.length === 0 && !window.__isQuestionsSeeded) {
+                            window.__isQuestionsSeeded = true;
+                            const defaultQ = [
+                                { subject: 'Informatika', classLevel: 'Kelas 8 (VIII)', material: 'Hardware', level: 'Sedang', q: 'Apa fungsi utama RAM?', options: ['Penyimpanan Permanen', 'Penyimpanan Sementara', 'Pemrosesan Grafik', 'Koneksi Internet'], answer: 1 },
+                                { subject: 'Tahfidz', classLevel: 'Kelas 7 (VII)', material: 'Al-Qur`an', level: 'Mudah', q: 'Surah Al-Fatihah terdiri dari berapa ayat?', options: ['5 Ayat', '6 Ayat', '7 Ayat', '8 Ayat'], answer: 2 },
+                            ];
+                            const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'questions');
+                            for (let q of defaultQ) { await addDoc(colRef, q); }
+                        } else {
+                            setMasterQuestionBank(loaded);
+                        }
+                    }, () => {});
+
+                    unsubRooms = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'rooms'), (snap) => {
+                        const rList = [];
+                        snap.forEach(d => rList.push({ id: d.id, ...d.data() }));
+                        setMyRoomsList(rList.filter(r => r.hostId === user.uid));
+                    }, () => {});
+                }
 
                 return () => { unsubTeachers(); unsubQuestions(); unsubRooms(); };
-            }, [user, userRole, currentView]);
+            }, [user, userRole, db, appId]); // Dependensi currentView telah dibuang agar koneksi stabil
 
             // Single room isolated listener for active participants (Students & Active Host)
             useEffect(() => {
