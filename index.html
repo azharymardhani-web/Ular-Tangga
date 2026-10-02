@@ -116,7 +116,7 @@
             auth = getAuth(app);
             isFirebaseConnected = true;
         } catch (e) {
-            console.error("Firebase init failed", e);
+            console.warn("Firebase connectivity warning, fallback mode active:", e);
         }
 
         const SUBJECTS = [
@@ -140,7 +140,7 @@
             { id: 'av12', name: 'Siti Kreatif', icon: '👩‍💻', bg: 'bg-indigo-500', badge: '⚡' },
             { id: 'av13', name: 'Umar Literasi', icon: '📚', bg: 'bg-amber-700', badge: '📜' },
             { id: 'av14', name: 'Kanza Muslimah', icon: '🧕🏾', bg: 'bg-emerald-500', badge: '🌙' },
-            { id: 'av15', name: 'Bagas Pejuang', icon: '🦸', bg: 'bg-red-600', badge: '🛡' },
+            { id: 'av15', name: 'Bagas Pejuang', icon: '🦸', bg: 'bg-red-600', badge: '🛡️️' },
             { id: 'av16', name: 'Ratu Teladan', icon: '👑', bg: 'bg-yellow-500', badge: '💎' },
             { id: 'av17', name: 'Zayn Santri', icon: '👳🏽', bg: 'bg-teal-700', badge: '🕌' },
             { id: 'av18', name: 'Kaila Muslimah', icon: '🧕🏿', bg: 'bg-stone-800', badge: '🌟' },
@@ -154,7 +154,7 @@
             { id: 'av26', name: 'Ilham Fisika', icon: '⚛️', bg: 'bg-blue-800', badge: '🔬' },
             { id: 'av27', name: 'Salsabila Biologi', icon: '🧬', bg: 'bg-emerald-700', badge: '🌿' },
             { id: 'av28', name: 'Fauzan Matematika', icon: '📐', bg: 'bg-orange-700', badge: '🔢' },
-            { id: 'av29', name: 'Nadira Chef', icon: '👩‍🍳', bg: 'bg-amber-600', badge: '🍳' },
+            { id: 'av29', name: 'Nadira Chef', icon: '👩‍‍🍳', bg: 'bg-amber-600', badge: '🍳' },
             { id: 'av30', name: 'Bintang Musisi', icon: '🎸', bg: 'bg-fuchsia-700', badge: '🎶' },
             { id: 'av31', name: 'Yusuf Arsitek', icon: '🏗️', bg: 'bg-stone-700', badge: '📐' },
             { id: 'av32', name: 'Zahira Dokter', icon: '🩺', bg: 'bg-teal-500', badge: '💊' }
@@ -287,6 +287,7 @@
                         ))}
 
                         <svg viewBox="0 0 100 100" className="absolute top-0 left-0 w-full h-full pointer-events-none drop-shadow-xl" style={{ zIndex: 5 }}>
+                            {/* Realistic Ladders */}
                             {Object.entries(currentBoardDef.ladders || {}).map(([start, end]) => {
                                 const sCoord = getCellCoords(parseInt(start));
                                 const eCoord = getCellCoords(end);
@@ -312,6 +313,7 @@
                                 );
                             })}
 
+                            {/* Realistic Snakes */}
                             {Object.entries(currentBoardDef.snakes || {}).map(([start, end]) => {
                                 const sCoord = getCellCoords(parseInt(start));
                                 const eCoord = getCellCoords(end);
@@ -356,25 +358,16 @@
         }
 
         function GamePlay({ roomData, userRole, user, playerData, db, appId, showToast, playSound, boardCells, handleLeaveRoom, kickPlayer, resetPlayerPosition }) {
-            const { useState, useEffect } = React;
+            const { useState } = React;
             const [teacherPanelOpen, setTeacherPanelOpen] = useState(false);
             const [isProcessing, setIsProcessing] = useState(false);
-            const [localOverride, setLocalOverride] = useState(null);
 
             if (!roomData) return <div className="min-h-screen flex items-center justify-center font-bold text-brand-navy">Memuat Game...</div>;
 
             const isTeacher = userRole === 'teacher';
             const roomPlayers = roomData.players || [];
-            const activePlayerBase = isTeacher ? null : (playerData || roomPlayers.find(p => p.id === user?.uid) || { id: user?.uid, position: 1, score: 0, correct: 0, wrong: 0, currentState: 'answering' });
+            const activePlayer = isTeacher ? null : (playerData || roomPlayers.find(p => p.id === user?.uid) || { id: user?.uid, position: 1, score: 0, correct: 0, wrong: 0, currentState: 'answering' });
             
-            const activePlayer = localOverride ? { ...activePlayerBase, ...localOverride } : activePlayerBase;
-
-            useEffect(() => {
-                if (localOverride && activePlayerBase?.currentState === localOverride.currentState && activePlayerBase?.score === localOverride.score) {
-                    setLocalOverride(null);
-                }
-            }, [activePlayerBase, localOverride]);
-
             const qList = Array.isArray(roomData.questions) ? roomData.questions : [];
             
             const getQuestionIndexForPlayer = (playerId, qLength) => {
@@ -399,7 +392,7 @@
             const isGamePaused = roomData.config?.isPaused;
 
             const syncPlayerWithTransaction = async (updaterFn) => {
-                if (!activePlayerBase || !user) return;
+                if (!activePlayer || !user) return;
                 if (!db || !isFirebaseConnected) {
                     if (roomData && roomData.players) {
                         const players = roomData.players.map(p => p.id === user.uid ? updaterFn(p) : p);
@@ -422,112 +415,93 @@
                     });
                 } catch (e) {
                     console.error("Transaction failed: ", e);
+                    showToast("Sinkronisasi tertunda, silakan coba lagi.", "error");
                 }
             };
 
             const submitAnswer = async (answerIndex) => {
                 if (userRole !== 'student' || isProcessing || !isAnswering || isGamePaused) return;
                 setIsProcessing(true);
-                
-                const isCorrect = answerIndex === Number(currentQuestion.answer);
-                if (isCorrect) {
-                    playSound('correct');
-                    showToast("Benar! Tombol kocok dadu aktif.", "success");
-                } else {
-                    playSound('wrong');
-                    showToast("Kurang tepat! Point -25", "error");
+                try {
+                    const isCorrect = answerIndex === Number(currentQuestion.answer);
+                    if (isCorrect) {
+                        playSound('correct');
+                        showToast("Benar! Tombol kocok dadu aktif.", "success");
+                    } else {
+                        playSound('wrong');
+                        showToast("Kurang tepat! Point -25", "error");
+                    }
+
+                    await syncPlayerWithTransaction((p) => {
+                        const currentScore = Number(p.score || 0);
+                        const newScore = isCorrect ? currentScore + 100 : currentScore - 25;
+                        const newCorrect = isCorrect ? Number(p.correct || 0) + 1 : Number(p.correct || 0);
+                        const newWrong = !isCorrect ? Number(p.wrong || 0) + 1 : Number(p.wrong || 0);
+                        let newPos = Number(p.position || 1);
+                        if (!isCorrect) {
+                            let penalty = Number(roomData.config?.wrongPenalty || 0);
+                            newPos = Math.max(1, newPos - penalty);
+                        }
+                        return {
+                            ...p,
+                            score: newScore,
+                            correct: newCorrect,
+                            wrong: newWrong,
+                            position: newPos,
+                            currentState: isCorrect ? 'rolling' : 'answering'
+                        };
+                    });
+                } finally {
+                    setIsProcessing(false);
                 }
-
-                const currentScore = Number(activePlayer.score || 0);
-                const newScore = isCorrect ? currentScore + 100 : currentScore - 25;
-                const newCorrect = isCorrect ? Number(activePlayer.correct || 0) + 1 : Number(activePlayer.correct || 0);
-                const newWrong = !isCorrect ? Number(activePlayer.wrong || 0) + 1 : Number(activePlayer.wrong || 0);
-                let newPos = Number(activePlayer.position || 1);
-                if (!isCorrect) {
-                    let penalty = Number(roomData.config?.wrongPenalty || 0);
-                    newPos = Math.max(1, newPos - penalty);
-                }
-                const newState = isCorrect ? 'rolling' : 'answering';
-
-                // 1. INSTANT OPTIMISTIC UI UPDATE
-                setLocalOverride({
-                    score: newScore,
-                    correct: newCorrect,
-                    wrong: newWrong,
-                    position: newPos,
-                    currentState: newState
-                });
-
-                setIsProcessing(false);
-
-                // 2. BACKGROUND DATABASE SYNC
-                syncPlayerWithTransaction((p) => {
-                    return {
-                        ...p,
-                        score: newScore,
-                        correct: newCorrect,
-                        wrong: newWrong,
-                        position: newPos,
-                        currentState: newState
-                    };
-                });
             };
 
             const rollDice = async () => {
                 if (userRole !== 'student' || isProcessing || !isRollingReady || isGamePaused) return;
                 setIsProcessing(true);
-                
-                playSound('dice');
-                const diceValue = Math.floor(Math.random() * 6) + 1;
+                try {
+                    playSound('dice');
+                    const diceValue = Math.floor(Math.random() * 6) + 1;
 
-                let newPos = Number(activePlayer.position || 1) + diceValue;
-                if (newPos > 100) newPos = 100 - (newPos - 100);
+                    let newPos = Number(activePlayer.position || 1) + diceValue;
+                    if (newPos > 100) newPos = 100 - (newPos - 100);
 
-                const board = roomData.board || BOARD_LAYOUTS.classic;
-                let hitEvent = false;
-                let scoreMod = 0;
+                    const board = roomData.board || BOARD_LAYOUTS.classic;
+                    let hitEvent = false;
+                    let scoreMod = 0;
 
-                if (board.snakes && board.snakes[newPos]) {
-                    newPos = board.snakes[newPos];
-                    hitEvent = 'snake';
-                    scoreMod = -30;
-                } else if (board.ladders && board.ladders[newPos]) {
-                    newPos = board.ladders[newPos];
-                    hitEvent = 'ladder';
-                    scoreMod = 50;
+                    if (board.snakes && board.snakes[newPos]) {
+                        newPos = board.snakes[newPos];
+                        hitEvent = 'snake';
+                        scoreMod = -30;
+                    } else if (board.ladders && board.ladders[newPos]) {
+                        newPos = board.ladders[newPos];
+                        hitEvent = 'ladder';
+                        scoreMod = 50;
+                    }
+
+                    await syncPlayerWithTransaction((p) => {
+                        const finalScore = Number(p.score || 0) + scoreMod + (newPos === 100 ? 500 : 0);
+                        const finalState = newPos === 100 ? 'finished' : 'answering';
+                        return {
+                            ...p,
+                            currentDice: diceValue,
+                            position: newPos,
+                            score: finalScore,
+                            currentState: finalState
+                        };
+                    });
+
+                    if (hitEvent) {
+                        showToast(hitEvent === 'ladder' ? 'Naik Tangga! +50' : 'Kena Ular! -30', hitEvent === 'ladder' ? 'success' : 'error');
+                    }
+                    if (newPos === 100) {
+                        playSound('correct');
+                        showToast("SELAMAT MENCAPAI FINISH!", "success");
+                    }
+                } finally {
+                    setIsProcessing(false);
                 }
-
-                const finalScore = Number(activePlayer.score || 0) + scoreMod + (newPos === 100 ? 500 : 0);
-                const finalState = newPos === 100 ? 'finished' : 'answering';
-
-                // 1. INSTANT OPTIMISTIC UI UPDATE
-                setLocalOverride({
-                    currentDice: diceValue,
-                    position: newPos,
-                    score: finalScore,
-                    currentState: finalState
-                });
-
-                if (hitEvent) {
-                    showToast(hitEvent === 'ladder' ? 'Naik Tangga! +50' : 'Kena Ular! -30', hitEvent === 'ladder' ? 'success' : 'error');
-                }
-                if (newPos === 100) {
-                    playSound('correct');
-                    showToast("SELAMAT MENCAPAI FINISH!", "success");
-                }
-
-                setIsProcessing(false);
-
-                // 2. BACKGROUND DATABASE SYNC
-                syncPlayerWithTransaction((p) => {
-                    return {
-                        ...p,
-                        currentDice: diceValue,
-                        position: newPos,
-                        score: finalScore,
-                        currentState: finalState
-                    };
-                });
             };
 
             return (
@@ -1409,7 +1383,7 @@
                 if (this.state.hasError) {
                     return (
                         <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-6 text-center">
-                            <div className="text-6xl mb-4">⚠️️</div>
+                            <div className="text-6xl mb-4">⚠️</div>
                             <h1 className="text-2xl font-bold mb-2">Terjadi Kendala Tampilan</h1>
                             <p className="text-slate-400 max-w-md mb-6 text-sm">{this.state.error?.toString() || "Gagal memuat komponen."}</p>
                             <button onClick={() => window.location.reload()} className="px-6 py-3 bg-brand-gold text-white font-bold rounded-2xl shadow-lg hover:bg-yellow-500 cursor-pointer">Muat Ulang Halaman</button>
@@ -1651,6 +1625,7 @@
                         await setDoc(roomRef, newRoomPayload);
                     }
                     
+                    // INSTANT STATE UPDATE: Immediately set room data and navigate directly to lobby view
                     setRoomData(newRoomPayload);
                     setRoomId(newRoomId); 
                     setUserRole('teacher'); 
