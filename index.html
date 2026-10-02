@@ -1426,6 +1426,17 @@
             const [joinCode, setJoinCode] = useState('');
             const [joinName, setJoinName] = useState('');
             const [selectedAvatar, setSelectedAvatar] = useState(null);
+            
+            const [isOffline, setIsOffline] = useState(!navigator.onLine);
+
+            // Pemantau Jaringan Internet Perangkat
+            useEffect(() => {
+                const handleOnline = () => { setIsOffline(false); showToast("Koneksi terhubung kembali! Sinkronisasi dilanjutkan.", "success"); };
+                const handleOffline = () => { setIsOffline(true); showToast("Internet terputus! Data akan disinkronkan saat online kembali.", "error"); };
+                window.addEventListener('online', handleOnline);
+                window.addEventListener('offline', handleOffline);
+                return () => { window.removeEventListener('online', handleOnline); window.removeEventListener('offline', handleOffline); };
+            }, []);
 
             const boardCells = useMemo(() => {
                 const grid = [];
@@ -1511,16 +1522,16 @@
                 restoreSession();
             }, [user]);
 
-            // Teacher dashboard data sync
+            // Teacher dashboard data sync (Dibuat Persisten & Stabil)
             useEffect(() => {
-                if (!user || userRole !== 'teacher' || currentView !== 'teacher_dash' || !db || !isFirebaseConnected) {
-                    if (masterQuestionBank.length === 0) {
+                if (!user || userRole !== 'teacher' || !db || !isFirebaseConnected) {
+                    if (userRole === 'teacher' && masterQuestionBank.length === 0) {
                         setMasterQuestionBank([
                             { id: 'q1', subject: 'Informatika', classLevel: 'Kelas 8 (VIII)', material: 'Hardware', level: 'Sedang', q: 'Apa fungsi utama RAM?', options: ['Penyimpanan Permanen', 'Penyimpanan Sementara', 'Pemrosesan Grafik', 'Koneksi Internet'], answer: 1 },
                             { id: 'q2', subject: 'Tahfidz', classLevel: 'Kelas 7 (VII)', material: 'Al-Qur`an', level: 'Mudah', q: 'Surah Al-Fatihah terdiri dari berapa ayat?', options: ['5 Ayat', '6 Ayat', '7 Ayat', '8 Ayat'], answer: 2 }
                         ]);
                     }
-                    if (teachersList.length === 0) {
+                    if (userRole === 'teacher' && teachersList.length === 0) {
                         setTeachersList([
                             { id: 't1', name: 'Ustadz Ali, S.Pd.I', subject: 'Tahfidz', pass: 'guru123' },
                             { id: 't2', name: 'Ibu Budi, M.Pd', subject: 'PPKn', pass: 'guru123' },
@@ -1545,7 +1556,7 @@
                     } else {
                         setTeachersList(loaded);
                     }
-                }, () => {});
+                }, (err) => console.error("Koneksi Data Guru Terputus:", err));
 
                 const unsubQuestions = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'questions'), async (snap) => {
                     const loaded = [];
@@ -1561,16 +1572,16 @@
                     } else {
                         setMasterQuestionBank(loaded);
                     }
-                }, () => {});
+                }, (err) => console.error("Koneksi Bank Soal Terputus:", err));
 
                 const unsubRooms = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'rooms'), (snap) => {
                     const rList = [];
                     snap.forEach(d => rList.push({ id: d.id, ...d.data() }));
                     setMyRoomsList(rList.filter(r => r.hostId === user.uid));
-                }, () => {});
+                }, (err) => console.error("Koneksi Rooms Terputus:", err));
 
                 return () => { unsubTeachers(); unsubQuestions(); unsubRooms(); };
-            }, [user, userRole, currentView]);
+            }, [user, userRole]); // Sengaja menghapus currentView agar koneksi tidak putus-nyambung
 
             // Single room isolated listener
             useEffect(() => {
@@ -1802,8 +1813,13 @@
             return (
                 <ErrorBoundary>
                     <div className="font-sans text-slate-800">
+                        {isOffline && (
+                            <div className="fixed top-0 left-0 w-full bg-red-600 text-white text-center py-1.5 text-xs font-bold z-[1000] animate-pulse drop-shadow-md">
+                                ⚠️ KONEKSI INTERNET ANDA TERPUTUS. MOHON JANGAN TUTUP ATAU REFRESH HALAMAN INI.
+                            </div>
+                        )}
                         {toast && (
-                            <div className={`fixed top-4 right-4 z-[100] px-6 py-3 rounded-2xl shadow-xl text-white font-bold text-sm ${toast.type === 'error' ? 'bg-red-500' : toast.type === 'success' ? 'bg-emerald-600' : 'bg-brand-navy'}`}>
+                            <div className={`fixed top-4 right-4 z-[100] px-6 py-3 rounded-2xl shadow-xl text-white font-bold text-sm transition-all ${toast.type === 'error' ? 'bg-red-500' : toast.type === 'success' ? 'bg-emerald-600' : 'bg-brand-navy'}`}>
                                 {toast.msg}
                             </div>
                         )}
