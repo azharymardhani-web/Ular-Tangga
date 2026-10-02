@@ -356,7 +356,7 @@
             );
         }
 
-        function GamePlay({ roomData, userRole, user, playerData, db, appId, showToast, playSound, boardCells, handleLeaveRoom, kickPlayer, resetPlayerPosition }) {
+        function GamePlay({ roomData, userRole, user, playerData, setPlayerData, db, appId, showToast, playSound, boardCells, handleLeaveRoom, kickPlayer, resetPlayerPosition }) {
             const { useState } = React;
             const [teacherPanelOpen, setTeacherPanelOpen] = useState(false);
             const [isProcessing, setIsProcessing] = useState(false);
@@ -408,93 +408,121 @@
                     });
                 } catch (e) {
                     console.error("Transaction failed: ", e);
-                    showToast("Sinkronisasi tertunda, silakan coba lagi.", "error");
+                    showToast("Koneksi lambat, menyinkronkan di latar belakang...", "info");
                 }
             };
 
             const submitAnswer = async (answerIndex) => {
                 if (userRole !== 'student' || isProcessing || !isAnswering || isGamePaused) return;
                 setIsProcessing(true);
-                try {
-                    const isCorrect = answerIndex === Number(currentQuestion.answer);
-                    if (isCorrect) {
-                        playSound('correct');
-                        showToast("Benar! Tombol kocok dadu aktif.", "success");
-                    } else {
-                        playSound('wrong');
-                        showToast("Kurang tepat! Point -25", "error");
-                    }
+                
+                const isCorrect = answerIndex === Number(currentQuestion.answer);
 
-                    await syncPlayerWithTransaction((p) => {
-                        const currentScore = Number(p.score || 0);
-                        const newScore = isCorrect ? currentScore + 100 : currentScore - 25;
-                        const newCorrect = isCorrect ? Number(p.correct || 0) + 1 : Number(p.correct || 0);
-                        const newWrong = !isCorrect ? Number(p.wrong || 0) + 1 : Number(p.wrong || 0);
-                        let newPos = Number(p.position || 1);
-                        if (!isCorrect) {
-                            let penalty = Number(roomData.config?.wrongPenalty || 0);
-                            newPos = Math.max(1, newPos - penalty);
-                        }
+                if (isCorrect) {
+                    playSound('correct');
+                    showToast("Benar! Tombol kocok dadu aktif.", "success");
+                } else {
+                    playSound('wrong');
+                    showToast("Kurang tepat! Point -25", "error");
+                }
+
+                // Pembaruan UI Instan (Optimistic UI) agar siswa tidak perlu menunggu server
+                if (setPlayerData) {
+                    setPlayerData(prev => {
+                        if (!prev) return prev;
+                        let pos = Number(prev.position || 1);
+                        if (!isCorrect) pos = Math.max(1, pos - Number(roomData.config?.wrongPenalty || 0));
                         return {
-                            ...p,
-                            score: newScore,
-                            correct: newCorrect,
-                            wrong: newWrong,
-                            position: newPos,
+                            ...prev,
+                            score: isCorrect ? Number(prev.score || 0) + 100 : Number(prev.score || 0) - 25,
+                            correct: isCorrect ? Number(prev.correct || 0) + 1 : Number(prev.correct || 0),
+                            wrong: !isCorrect ? Number(prev.wrong || 0) + 1 : Number(prev.wrong || 0),
+                            position: pos,
                             currentState: isCorrect ? 'rolling' : 'answering'
                         };
                     });
-                } finally {
-                    setIsProcessing(false);
                 }
+
+                // Sinkronisasi background ke Database
+                syncPlayerWithTransaction((p) => {
+                    const currentScore = Number(p.score || 0);
+                    let newPos = Number(p.position || 1);
+                    if (!isCorrect) newPos = Math.max(1, newPos - Number(roomData.config?.wrongPenalty || 0));
+                    
+                    return {
+                        ...p,
+                        score: isCorrect ? currentScore + 100 : currentScore - 25,
+                        correct: isCorrect ? Number(p.correct || 0) + 1 : Number(p.correct || 0),
+                        wrong: !isCorrect ? Number(p.wrong || 0) + 1 : Number(p.wrong || 0),
+                        position: newPos,
+                        currentState: isCorrect ? 'rolling' : 'answering'
+                    };
+                }).finally(() => {
+                    setTimeout(() => setIsProcessing(false), 300); // Debounce ringan
+                });
             };
 
             const rollDice = async () => {
                 if (userRole !== 'student' || isProcessing || !isRollingReady || isGamePaused) return;
                 setIsProcessing(true);
-                try {
-                    playSound('dice');
-                    const diceValue = Math.floor(Math.random() * 6) + 1;
+                
+                playSound('dice');
+                const diceValue = Math.floor(Math.random() * 6) + 1;
 
-                    let newPos = Number(activePlayer.position || 1) + diceValue;
-                    if (newPos > 100) newPos = 100 - (newPos - 100);
+                let newPos = Number(activePlayer.position || 1) + diceValue;
+                if (newPos > 100) newPos = 100 - (newPos - 100);
 
-                    const board = roomData.board || BOARD_LAYOUTS.classic;
-                    let hitEvent = false;
-                    let scoreMod = 0;
+                const board = roomData.board || BOARD_LAYOUTS.classic;
+                let hitEvent = false;
+                let scoreMod = 0;
 
-                    if (board.snakes && board.snakes[newPos]) {
-                        newPos = board.snakes[newPos];
-                        hitEvent = 'snake';
-                        scoreMod = -30;
-                    } else if (board.ladders && board.ladders[newPos]) {
-                        newPos = board.ladders[newPos];
-                        hitEvent = 'ladder';
-                        scoreMod = 50;
-                    }
+                if (board.snakes && board.snakes[newPos]) {
+                    newPos = board.snakes[newPos];
+                    hitEvent = 'snake';
+                    scoreMod = -30;
+                } else if (board.ladders && board.ladders[newPos]) {
+                    newPos = board.ladders[newPos];
+                    hitEvent = 'ladder';
+                    scoreMod = 50;
+                }
 
-                    await syncPlayerWithTransaction((p) => {
-                        const finalScore = Number(p.score || 0) + scoreMod + (newPos === 100 ? 500 : 0);
-                        const finalState = newPos === 100 ? 'finished' : 'answering';
+                if (hitEvent) {
+                    showToast(hitEvent === 'ladder' ? 'Naik Tangga! +50' : 'Kena Ular! -30', hitEvent === 'ladder' ? 'success' : 'error');
+                }
+                if (newPos === 100) {
+                    playSound('correct');
+                    showToast("SELAMAT MENCAPAI FINISH!", "success");
+                }
+
+                const finalState = newPos === 100 ? 'finished' : 'answering';
+
+                // Pembaruan UI Instan Pion & Status
+                if (setPlayerData) {
+                    setPlayerData(prev => {
+                        if (!prev) return prev;
                         return {
-                            ...p,
+                            ...prev,
                             currentDice: diceValue,
                             position: newPos,
-                            score: finalScore,
+                            score: Number(prev.score || 0) + scoreMod + (newPos === 100 ? 500 : 0),
                             currentState: finalState
                         };
                     });
-
-                    if (hitEvent) {
-                        showToast(hitEvent === 'ladder' ? 'Naik Tangga! +50' : 'Kena Ular! -30', hitEvent === 'ladder' ? 'success' : 'error');
-                    }
-                    if (newPos === 100) {
-                        playSound('correct');
-                        showToast("SELAMAT MENCAPAI FINISH!", "success");
-                    }
-                } finally {
-                    setIsProcessing(false);
                 }
+
+                // Sinkronisasi background ke Database
+                syncPlayerWithTransaction((p) => {
+                    const finalScore = Number(p.score || 0) + scoreMod + (newPos === 100 ? 500 : 0);
+                    return {
+                        ...p,
+                        currentDice: diceValue,
+                        position: newPos,
+                        score: finalScore,
+                        currentState: finalState
+                    };
+                }).finally(() => {
+                    setTimeout(() => setIsProcessing(false), 300); // Debounce ringan
+                });
             };
 
             return (
@@ -1795,6 +1823,7 @@
                                 userRole={userRole} 
                                 user={user} 
                                 playerData={playerData} 
+                                setPlayerData={setPlayerData} 
                                 db={db} 
                                 appId={appId} 
                                 showToast={showToast} 
