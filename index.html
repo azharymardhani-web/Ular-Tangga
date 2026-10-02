@@ -109,14 +109,13 @@
             measurementId: "G-E5QK6W2JR9"
         };
         
-        let app = null, db = null, auth = null, isFirebaseConnected = false;
+        let app, db, auth;
         try {
             app = initializeApp(firebaseConfig);
             db = getFirestore(app);
             auth = getAuth(app);
-            isFirebaseConnected = true;
         } catch (e) {
-            console.warn("Firebase connectivity warning, fallback mode active:", e);
+            console.error("Firebase init failed", e);
         }
 
         const SUBJECTS = [
@@ -370,6 +369,7 @@
             
             const qList = Array.isArray(roomData.questions) ? roomData.questions : [];
             
+            // Hash pseudo-random per player so each gets randomized question order without server overhead
             const getQuestionIndexForPlayer = (playerId, qLength) => {
                 if (!playerId || qLength <= 0) return 0;
                 let hash = 0;
@@ -392,15 +392,7 @@
             const isGamePaused = roomData.config?.isPaused;
 
             const syncPlayerWithTransaction = async (updaterFn) => {
-                if (!activePlayer || !user) return;
-                if (!db || !isFirebaseConnected) {
-                    // Fallback memory sync
-                    if (roomData && roomData.players) {
-                        const players = roomData.players.map(p => p.id === user.uid ? updaterFn(p) : p);
-                        roomData.players = players;
-                    }
-                    return;
-                }
+                if (!activePlayer || !db || !user) return;
                 const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomData.id);
                 try {
                     await runTransaction(db, async (transaction) => {
@@ -554,9 +546,7 @@
                                         <Button variant="outline" onClick={(e) => { e.stopPropagation(); handleLeaveRoom(); }} className="text-xs py-1.5 px-3">⬅ Dashboard</Button>
                                         <Button variant="danger" onClick={async (e) => { 
                                             e.stopPropagation(); 
-                                            if (db && isFirebaseConnected) {
-                                                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomData.id), { status: 'finished', finishedAt: Date.now() }); 
-                                            }
+                                            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomData.id), { status: 'finished', finishedAt: Date.now() }); 
                                         }} className="text-xs py-1.5 px-3">Selesaikan Ujian</Button>
                                         <span className="text-xl">{teacherPanelOpen ? '▲' : '▼'}</span>
                                     </div>
@@ -565,11 +555,7 @@
                                 {teacherPanelOpen && (
                                     <div className="p-4 border-t space-y-4">
                                         <button 
-                                            onClick={async () => {
-                                                if (db && isFirebaseConnected) {
-                                                    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomData.id), { 'config.isPaused': !isGamePaused });
-                                                }
-                                            }}
+                                            onClick={async () => await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomData.id), { 'config.isPaused': !isGamePaused })}
                                             className={`px-4 py-2 rounded-xl text-sm font-bold cursor-pointer ${isGamePaused ? 'bg-emerald-600 text-white' : 'bg-amber-100 text-amber-700'}`}
                                         >
                                             {isGamePaused ? '▶️ Lanjutkan Permainan' : '⏸ Jeda Permainan (Pause)'}
@@ -686,12 +672,12 @@
             );
         }
 
-        function StudentJoinUI({ joinCode, setJoinCode, joinName, setJoinName, selectedAvatar, setSelectedAvatar, joinRoom, setCurrentView, db }) {
+        function StudentJoinUI({ joinCode, setJoinCode, joinName, setJoinName, selectedAvatar, setSelectedAvatar, joinRoom, setCurrentView, db, appId }) {
             const { useState, useEffect } = React;
             const [targetRoom, setTargetRoom] = useState(null);
 
             useEffect(() => {
-                if (joinCode.length >= 4 && db && isFirebaseConnected) {
+                if (joinCode.length >= 4) {
                     let c = joinCode.toUpperCase().trim();
                     if (!c.startsWith('MT14-')) c = 'MT14-' + c;
                     getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', c)).then(snap => {
@@ -701,7 +687,7 @@
                 } else {
                     setTargetRoom(null);
                 }
-            }, [joinCode, db]);
+            }, [joinCode, db, appId]);
 
             return (
                 <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
@@ -793,6 +779,7 @@
             setCurrentView, 
             showToast,
             db,
+            appId,
             selectedBoardKey,
             setSelectedBoardKey,
             myRoomsList,
@@ -824,7 +811,7 @@
             const [historyModalRoom, setHistoryModalRoom] = useState(null);
 
             useEffect(() => {
-                if (!db || !isFirebaseConnected) return;
+                if (!db || !appId) return;
                 const keyRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'gemini_config');
                 getDoc(keyRef).then(snap => {
                     if (snap.exists() && snap.data().apiKey) {
@@ -832,7 +819,7 @@
                         localStorage.setItem('gemini_api_key', snap.data().apiKey);
                     }
                 }).catch(() => {});
-            }, [db]);
+            }, [db, appId]);
 
             const subjectQuestions = masterQuestionBank.filter(q => q.subject === assignedSubject);
             const availableMaterials = ['Semua Materi', ...new Set(subjectQuestions.map(q => q.material || 'Umum'))];
@@ -881,14 +868,14 @@
                                 });
                             }
                         }
-                        if (parsedList.length > 0 && db && isFirebaseConnected) {
+                        if (parsedList.length > 0) {
                             const qCol = collection(db, 'artifacts', appId, 'public', 'data', 'questions');
                             for(let item of parsedList) {
                                 await addDoc(qCol, item);
                             }
                             showToast(`Berhasil menyimpan ${parsedList.length} soal!`, "success");
                         } else {
-                            showToast("Format file tidak valid atau offline mode.", "error");
+                            showToast("Format file tidak valid atau kosong.", "error");
                         }
                     } catch (err) {
                         showToast("Gagal membaca file CSV", "error");
@@ -913,9 +900,7 @@
                     createdAt: Date.now()
                 };
                 try {
-                    if (db && isFirebaseConnected) {
-                        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'questions'), newQ);
-                    }
+                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'questions'), newQ);
                     setManualQ(''); setManualOptA(''); setManualOptB(''); setManualOptC(''); setManualOptD('');
                     showToast(`Soal berhasil ditambahkan!`, "success");
                 } catch(e) {
@@ -958,10 +943,8 @@
                                 answer: Number(item.answer) >= 0 && Number(item.answer) <= 3 ? Number(item.answer) : 0,
                                 createdAt: Date.now()
                             }));
-                            if (db && isFirebaseConnected) {
-                                const qCol = collection(db, 'artifacts', appId, 'public', 'data', 'questions');
-                                for(let item of generatedQuestions) { await addDoc(qCol, item); }
-                            }
+                            const qCol = collection(db, 'artifacts', appId, 'public', 'data', 'questions');
+                            for(let item of generatedQuestions) { await addDoc(qCol, item); }
                             setIsGenerating(false);
                             setAiTopic('');
                             showToast(`Berhasil menyimpan ${generatedQuestions.length} soal AI!`, "success");
@@ -1073,12 +1056,7 @@
                                                     <div className="flex gap-2 w-full sm:w-auto">
                                                         <Button onClick={() => setHistoryModalRoom(r)} variant="success" className="text-xs py-2 px-3">📊 Klasemen</Button>
                                                         {r.status !== 'finished' && <Button onClick={() => resumeRoom(r.id)} className="text-xs py-2 px-3">Masuk</Button>}
-                                                        <button onClick={async () => {
-                                                            if (db && isFirebaseConnected) {
-                                                                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', r.id));
-                                                            }
-                                                            showToast("Room dihapus", "info");
-                                                        }} className="px-3 py-2 bg-red-50 text-red-600 rounded-2xl text-xs font-bold cursor-pointer hover:bg-red-100">Hapus</button>
+                                                        <button onClick={async () => { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', r.id)); showToast("Room dihapus", "info"); }} className="px-3 py-2 bg-red-50 text-red-600 rounded-2xl text-xs font-bold cursor-pointer hover:bg-red-100">Hapus</button>
                                                     </div>
                                                 </div>
                                             ))}
@@ -1106,7 +1084,7 @@
                                                 onChange={e => { setCustomApiKey(e.target.value); localStorage.setItem('gemini_api_key', e.target.value); }} 
                                                 onBlur={async (e) => {
                                                     const key = e.target.value.trim();
-                                                    if(key && db && isFirebaseConnected) {
+                                                    if(key && db) {
                                                         await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'gemini_config'), { apiKey: key }, { merge: true });
                                                         showToast("API Key tersimpan permanen!", "success");
                                                     }
@@ -1182,12 +1160,7 @@
                                                     </div>
                                                     <div className="font-bold text-brand-navy text-sm">{q.q}</div>
                                                 </div>
-                                                <button onClick={async () => {
-                                                    if (db && isFirebaseConnected) {
-                                                        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'questions', q.id));
-                                                    }
-                                                    showToast("Soal dihapus", "info");
-                                                }} className="px-3 py-1.5 bg-red-50 text-red-600 rounded-xl text-xs font-bold cursor-pointer hover:bg-red-100">Hapus</button>
+                                                <button onClick={async () => { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'questions', q.id)); showToast("Soal dihapus", "info"); }} className="px-3 py-1.5 bg-red-50 text-red-600 rounded-xl text-xs font-bold cursor-pointer hover:bg-red-100">Hapus</button>
                                             </div>
                                         ))}
                                     </div>
@@ -1195,6 +1168,7 @@
                             </div>
                         )}
 
+                        {/* MODAL RIWAYAT KLASEMEN */}
                         {historyModalRoom && (
                             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 backdrop-blur-sm">
                                 <div className="bg-white rounded-3xl p-6 md:p-8 max-w-2xl w-full shadow-2xl max-h-[90vh] overflow-y-auto">
@@ -1245,6 +1219,7 @@
                             </div>
                         )}
 
+                        {/* MODAL TAMBAH MANUAL */}
                         <div id="manual-soal-modal" className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 backdrop-blur-sm hidden">
                             <div className="bg-white rounded-3xl p-6 max-w-xl w-full shadow-2xl max-h-[90vh] overflow-y-auto">
                                 <div className="flex justify-between items-center mb-4">
@@ -1274,7 +1249,7 @@
             );
         }
 
-        function AdminDashboard({ teachersList, setCurrentView, db, showToast }) {
+        function AdminDashboard({ teachersList, setCurrentView, db, appId, showToast }) {
             const { useState } = React;
             const [newTName, setNewTName] = useState('');
             const [newTSub, setNewTSub] = useState('Informatika');
@@ -1298,9 +1273,7 @@
                                     <input type="text" value={newTPass} onChange={e => setNewTPass(e.target.value)} placeholder="Password" className="w-full p-3.5 border rounded-2xl bg-white" />
                                     <Button onClick={async () => {
                                         if(!newTName.trim()) return;
-                                        if (db && isFirebaseConnected) {
-                                            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'teachers'), { name: newTName, subject: newTSub, pass: newTPass });
-                                        }
+                                        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'teachers'), { name: newTName, subject: newTSub, pass: newTPass });
                                         setNewTName(''); showToast("Guru ditambahkan", "success");
                                     }} className="w-full bg-purple-600 hover:bg-purple-700">Simpan Guru</Button>
                                 </div>
@@ -1311,12 +1284,7 @@
                                     {teachersList.map(t => (
                                         <div key={t.id} className="p-3.5 bg-slate-50 border rounded-2xl flex justify-between items-center">
                                             <div><div className="font-bold text-sm">{t.name}</div><div className="text-xs text-brand-teal">{t.subject}</div></div>
-                                            <button onClick={async () => {
-                                                if (db && isFirebaseConnected) {
-                                                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'teachers', t.id));
-                                                }
-                                                showToast("Dihapus", "info");
-                                            }} className="text-red-500 text-xs font-bold px-2.5 py-1.5 bg-red-50 rounded-xl cursor-pointer hover:bg-red-100">Hapus</button>
+                                            <button onClick={async () => { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'teachers', t.id)); showToast("Dihapus", "info"); }} className="text-red-500 text-xs font-bold px-2.5 py-1.5 bg-red-50 rounded-xl cursor-pointer hover:bg-red-100">Hapus</button>
                                         </div>
                                     ))}
                                 </div>
@@ -1426,17 +1394,6 @@
             const [joinCode, setJoinCode] = useState('');
             const [joinName, setJoinName] = useState('');
             const [selectedAvatar, setSelectedAvatar] = useState(null);
-            
-            const [isOffline, setIsOffline] = useState(!navigator.onLine);
-
-            // Pemantau Jaringan Internet Perangkat
-            useEffect(() => {
-                const handleOnline = () => { setIsOffline(false); showToast("Koneksi terhubung kembali! Sinkronisasi dilanjutkan.", "success"); };
-                const handleOffline = () => { setIsOffline(true); showToast("Internet terputus! Data akan disinkronkan saat online kembali.", "error"); };
-                window.addEventListener('online', handleOnline);
-                window.addEventListener('offline', handleOffline);
-                return () => { window.removeEventListener('online', handleOnline); window.removeEventListener('offline', handleOffline); };
-            }, []);
 
             const boardCells = useMemo(() => {
                 const grid = [];
@@ -1468,13 +1425,9 @@
                 setTimeout(() => setToast(null), 3000);
             };
 
-            // Authentication & Fallback initialization
+            // Authentication listener
             useEffect(() => {
-                if(!auth || !isFirebaseConnected) {
-                    setUser({ uid: 'offline-user-' + Math.random().toString(36).substring(2, 7) });
-                    setLoading(false);
-                    return;
-                }
+                if(!auth) { setLoading(false); return; }
                 const initAuth = async () => {
                     const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
                     try {
@@ -1486,7 +1439,7 @@
                     }
                 };
                 const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-                    setUser(currentUser || { uid: 'offline-user-' + Math.random().toString(36).substring(2, 7) });
+                    setUser(currentUser);
                     setLoading(false);
                 });
                 initAuth();
@@ -1496,7 +1449,7 @@
             // Session restoration
             useEffect(() => {
                 const restoreSession = async () => {
-                    if (!user || !db || !isFirebaseConnected) return;
+                    if (!user || !db) return;
                     const savedRoomId = localStorage.getItem('mt14_roomId');
                     const savedRole = localStorage.getItem('mt14_role');
                     if (savedRoomId && savedRole) {
@@ -1522,24 +1475,9 @@
                 restoreSession();
             }, [user]);
 
-            // Teacher dashboard data sync (Dibuat Persisten & Stabil)
+            // Isolated data listener for Teacher Dashboard (Runs ONLY when user is teacher and in teacher dash)
             useEffect(() => {
-                if (!user || userRole !== 'teacher' || !db || !isFirebaseConnected) {
-                    if (userRole === 'teacher' && masterQuestionBank.length === 0) {
-                        setMasterQuestionBank([
-                            { id: 'q1', subject: 'Informatika', classLevel: 'Kelas 8 (VIII)', material: 'Hardware', level: 'Sedang', q: 'Apa fungsi utama RAM?', options: ['Penyimpanan Permanen', 'Penyimpanan Sementara', 'Pemrosesan Grafik', 'Koneksi Internet'], answer: 1 },
-                            { id: 'q2', subject: 'Tahfidz', classLevel: 'Kelas 7 (VII)', material: 'Al-Qur`an', level: 'Mudah', q: 'Surah Al-Fatihah terdiri dari berapa ayat?', options: ['5 Ayat', '6 Ayat', '7 Ayat', '8 Ayat'], answer: 2 }
-                        ]);
-                    }
-                    if (userRole === 'teacher' && teachersList.length === 0) {
-                        setTeachersList([
-                            { id: 't1', name: 'Ustadz Ali, S.Pd.I', subject: 'Tahfidz', pass: 'guru123' },
-                            { id: 't2', name: 'Ibu Budi, M.Pd', subject: 'PPKn', pass: 'guru123' },
-                            { id: 't3', name: 'Bpk. Ahmad, S.Kom', subject: 'Informatika', pass: 'guru123' }
-                        ]);
-                    }
-                    return;
-                }
+                if (!user || userRole !== 'teacher' || currentView !== 'teacher_dash') return;
                 
                 const unsubTeachers = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'teachers'), async (snap) => {
                     const loaded = [];
@@ -1556,7 +1494,7 @@
                     } else {
                         setTeachersList(loaded);
                     }
-                }, (err) => console.error("Koneksi Data Guru Terputus:", err));
+                }, () => {});
 
                 const unsubQuestions = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'questions'), async (snap) => {
                     const loaded = [];
@@ -1572,20 +1510,20 @@
                     } else {
                         setMasterQuestionBank(loaded);
                     }
-                }, (err) => console.error("Koneksi Bank Soal Terputus:", err));
+                }, () => {});
 
                 const unsubRooms = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'rooms'), (snap) => {
                     const rList = [];
                     snap.forEach(d => rList.push({ id: d.id, ...d.data() }));
                     setMyRoomsList(rList.filter(r => r.hostId === user.uid));
-                }, (err) => console.error("Koneksi Rooms Terputus:", err));
+                }, () => {});
 
                 return () => { unsubTeachers(); unsubQuestions(); unsubRooms(); };
-            }, [user, userRole]); // Sengaja menghapus currentView agar koneksi tidak putus-nyambung
+            }, [user, userRole, currentView]);
 
-            // Single room isolated listener
+            // Single room isolated listener for active participants (Students & Active Host)
             useEffect(() => {
-                if (!user || !roomId || !db || !isFirebaseConnected) return;
+                if (!user || !roomId || !db) return;
                 const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
                 const unsubscribe = onSnapshot(roomRef, (snapshot) => {
                     if (snapshot.exists()) {
@@ -1620,6 +1558,7 @@
                 if (!user) return;
                 try {
                     const newRoomId = 'MT14-' + Math.random().toString(36).substring(2, 6).toUpperCase();
+                    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', newRoomId);
                     
                     const teacherSubject = currentTeacher?.subject || 'Informatika';
                     const filteredQuestions = masterQuestionBank.filter(q => {
@@ -1635,6 +1574,7 @@
 
                     const chosenBoard = BOARD_LAYOUTS[selectedBoardKey] || BOARD_LAYOUTS.classic;
 
+                    // Deep sanitize payload to strip any accidental undefined values
                     const cleanQuestions = JSON.parse(JSON.stringify(activeQuestions));
                     const cleanBoard = JSON.parse(JSON.stringify(chosenBoard));
 
@@ -1657,12 +1597,7 @@
                         createdAt: Date.now()
                     };
 
-                    if (db && isFirebaseConnected) {
-                        const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', newRoomId);
-                        await setDoc(roomRef, newRoomPayload);
-                    } else {
-                        setRoomData(newRoomPayload);
-                    }
+                    await setDoc(roomRef, newRoomPayload);
                     
                     setRoomId(newRoomId); 
                     setUserRole('teacher'); 
@@ -1678,15 +1613,11 @@
 
             const resumeRoom = async (targetRoomId) => {
                 try {
-                    if (db && isFirebaseConnected) {
-                        const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', targetRoomId);
-                        const snap = await getDoc(roomRef);
-                        if (snap.exists()) {
-                            setRoomId(targetRoomId); setUserRole('teacher'); setCurrentView(snap.data().status === 'playing' ? 'playing' : snap.data().status === 'finished' ? 'finished' : 'lobby');
-                            localStorage.setItem('mt14_roomId', targetRoomId); localStorage.setItem('mt14_role', 'teacher');
-                        }
-                    } else {
-                        showToast("Memasuki mode offline room", "info");
+                    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', targetRoomId);
+                    const snap = await getDoc(roomRef);
+                    if (snap.exists()) {
+                        setRoomId(targetRoomId); setUserRole('teacher'); setCurrentView(snap.data().status === 'playing' ? 'playing' : snap.data().status === 'finished' ? 'finished' : 'lobby');
+                        localStorage.setItem('mt14_roomId', targetRoomId); localStorage.setItem('mt14_role', 'teacher');
                     }
                 } catch(e) { showToast("Room tidak ditemukan", "error"); }
             };
@@ -1698,48 +1629,31 @@
 
                 let rCode = code.toUpperCase().trim();
                 if (!rCode.startsWith('MT14-') && rCode.length >= 4) rCode = 'MT14-' + rCode;
-                
+                const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', rCode);
                 try {
-                    let rData = null;
-                    if (db && isFirebaseConnected) {
-                        const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', rCode);
-                        const snap = await getDoc(roomRef);
-                        if (!snap.exists()) { showToast(`Room ${rCode} tidak ditemukan!`, "error"); return; }
-                        rData = snap.data();
-                        
-                        const existingPlayer = (rData.players || []).find(p => p.id === user.uid);
-                        if (!existingPlayer && rData.status !== 'lobby') { 
-                            showToast("Permainan sudah dimulai, tidak dapat bergabung baru.", "error"); 
-                            return; 
-                        }
-                        if (!existingPlayer && (rData.players || []).some(p => p.avatarId === avatarId)) { 
-                            showToast("Avatar sudah dipilih siswa lain!", "error"); 
-                            return; 
-                        }
+                    const snap = await getDoc(roomRef);
+                    if (!snap.exists()) { showToast(`Room ${rCode} tidak ditemukan!`, "error"); return; }
+                    const rData = snap.data();
+                    
+                    const existingPlayer = (rData.players || []).find(p => p.id === user.uid);
+                    if (!existingPlayer && rData.status !== 'lobby') { 
+                        showToast("Permainan sudah dimulai, tidak dapat bergabung baru.", "error"); 
+                        return; 
+                    }
+                    if (!existingPlayer && (rData.players || []).some(p => p.avatarId === avatarId)) { 
+                        showToast("Avatar sudah dipilih siswa lain!", "error"); 
+                        return; 
+                    }
 
-                        if (!existingPlayer) {
-                            const newPlayer = {
-                                id: user.uid, name: playerName.trim(), avatarId: avatarId,
-                                position: 1, score: 0, correct: 0, wrong: 0, currentState: 'answering'
-                            };
-                            await updateDoc(roomRef, { players: [...(rData.players || []), newPlayer] });
-                            setPlayerData(newPlayer);
-                        } else {
-                            setPlayerData(existingPlayer);
-                        }
-                    } else {
-                        // Offline mock room fallback
-                        rData = roomData || {
-                            id: rCode,
-                            status: 'lobby',
-                            board: BOARD_LAYOUTS.classic,
-                            questions: [{ q: 'Contoh Soal Offline?', options: ['A', 'B', 'C', 'D'], answer: 0 }],
-                            players: []
+                    if (!existingPlayer) {
+                        const newPlayer = {
+                            id: user.uid, name: playerName.trim(), avatarId: avatarId,
+                            position: 1, score: 0, correct: 0, wrong: 0, currentState: 'answering'
                         };
-                        const newPlayer = { id: user.uid, name: playerName.trim(), avatarId, position: 1, score: 0, correct: 0, wrong: 0, currentState: 'answering' };
-                        rData.players.push(newPlayer);
-                        setRoomData(rData);
+                        await updateDoc(roomRef, { players: [...(rData.players || []), newPlayer] });
                         setPlayerData(newPlayer);
+                    } else {
+                        setPlayerData(existingPlayer);
                     }
 
                     setRoomId(rCode); 
@@ -1766,12 +1680,10 @@
             const kickPlayer = async (playerId) => {
                 if (userRole !== 'teacher' || !roomId) return;
                 try {
-                    if (db && isFirebaseConnected) {
-                        const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
-                        const snap = await getDoc(roomRef);
-                        if (snap.exists()) {
-                            await updateDoc(roomRef, { players: (snap.data().players || []).filter(p => p.id !== playerId) });
-                        }
+                    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
+                    const snap = await getDoc(roomRef);
+                    if (snap.exists()) {
+                        await updateDoc(roomRef, { players: (snap.data().players || []).filter(p => p.id !== playerId) });
                     }
                 } catch (e) {}
             };
@@ -1779,18 +1691,16 @@
             const resetPlayerPosition = async (playerId) => {
                 if (userRole !== 'teacher' || !roomId) return;
                 try {
-                    if (db && isFirebaseConnected) {
-                        const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
-                        const snap = await getDoc(roomRef);
-                        if (snap.exists()) {
-                            let players = [...(snap.data().players || [])];
-                            let pIndex = players.findIndex(p => p.id === playerId);
-                            if(pIndex !== -1) {
-                                players[pIndex].position = 1;
-                                players[pIndex].currentState = 'answering';
-                                await updateDoc(roomRef, { players: players });
-                                showToast("Posisi siswa direset ke awal", "info");
-                            }
+                    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
+                    const snap = await getDoc(roomRef);
+                    if (snap.exists()) {
+                        let players = [...(snap.data().players || [])];
+                        let pIndex = players.findIndex(p => p.id === playerId);
+                        if(pIndex !== -1) {
+                            players[pIndex].position = 1;
+                            players[pIndex].currentState = 'answering';
+                            await updateDoc(roomRef, { players: players });
+                            showToast("Posisi siswa direset ke awal", "info");
                         }
                     }
                 } catch (e) {}
@@ -1798,13 +1708,11 @@
 
             const startGame = async () => {
                 if (userRole !== 'teacher' || !roomData) return;
-                if (db && isFirebaseConnected) {
-                    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
-                    const startingPlayers = (roomData.players || []).map(p => ({
-                        ...p, position: 1, currentState: 'answering', currentDice: null
-                    }));
-                    await updateDoc(roomRef, { status: 'playing', players: startingPlayers });
-                }
+                const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
+                const startingPlayers = (roomData.players || []).map(p => ({
+                    ...p, position: 1, currentState: 'answering', currentDice: null
+                }));
+                await updateDoc(roomRef, { status: 'playing', players: startingPlayers });
                 setCurrentView('playing');
             };
 
@@ -1813,13 +1721,8 @@
             return (
                 <ErrorBoundary>
                     <div className="font-sans text-slate-800">
-                        {isOffline && (
-                            <div className="fixed top-0 left-0 w-full bg-red-600 text-white text-center py-1.5 text-xs font-bold z-[1000] animate-pulse drop-shadow-md">
-                                ⚠️ KONEKSI INTERNET ANDA TERPUTUS. MOHON JANGAN TUTUP ATAU REFRESH HALAMAN INI.
-                            </div>
-                        )}
                         {toast && (
-                            <div className={`fixed top-4 right-4 z-[100] px-6 py-3 rounded-2xl shadow-xl text-white font-bold text-sm transition-all ${toast.type === 'error' ? 'bg-red-500' : toast.type === 'success' ? 'bg-emerald-600' : 'bg-brand-navy'}`}>
+                            <div className={`fixed top-4 right-4 z-[100] px-6 py-3 rounded-2xl shadow-xl text-white font-bold text-sm ${toast.type === 'error' ? 'bg-red-500' : toast.type === 'success' ? 'bg-emerald-600' : 'bg-brand-navy'}`}>
                                 {toast.msg}
                             </div>
                         )}
@@ -1840,6 +1743,7 @@
                                 setCurrentView={setCurrentView} 
                                 showToast={showToast} 
                                 db={db} 
+                                appId={appId} 
                                 selectedBoardKey={selectedBoardKey} 
                                 setSelectedBoardKey={setSelectedBoardKey} 
                                 myRoomsList={myRoomsList} 
@@ -1851,6 +1755,7 @@
                                 teachersList={teachersList} 
                                 setCurrentView={setCurrentView} 
                                 db={db} 
+                                appId={appId} 
                                 showToast={showToast} 
                             />
                         )}
@@ -1865,6 +1770,7 @@
                                 joinRoom={joinRoom} 
                                 setCurrentView={setCurrentView} 
                                 db={db} 
+                                appId={appId} 
                             />
                         )}
                         {currentView === 'lobby' && (
@@ -1932,11 +1838,9 @@
                                         <Button variant="outline" className="flex-1" onClick={() => setAdminModalOpen(false)}>Batal</Button>
                                         <Button className="flex-1 bg-purple-600 hover:bg-purple-700" onClick={async () => {
                                             try {
+                                                const snap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'admin_config'));
                                                 let u = 'admin'; let p = 'admin123';
-                                                if(db && isFirebaseConnected) {
-                                                    const snap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'admin_config'));
-                                                    if(snap.exists()) { u = snap.data().username || 'admin'; p = snap.data().password || 'admin123'; }
-                                                }
+                                                if(snap.exists()) { u = snap.data().username || 'admin'; p = snap.data().password || 'admin123'; }
                                                 if (adminUserLogin === u && adminPassLogin === p) {
                                                     setUserRole('admin'); setCurrentView('admin_dash'); setAdminModalOpen(false);
                                                 } else { showToast("Login gagal", "error"); }
